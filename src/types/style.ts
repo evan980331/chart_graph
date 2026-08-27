@@ -35,16 +35,16 @@ export function resolveFontFamily(font: FontFamily): string {
 
 export const DEFAULT_STYLE_CONFIG: ChartStyleConfig = {
   font: 'arial',
-  fontSize: 14,
-  tickFontSize: 12,
+  fontSize: 18,
+  tickFontSize: 14,
   axisColor: '#000000',
-  axisWidth: 1,
+  axisWidth: 1.5,
   tickDirection: 'outside',
   showXGrid: true,
   showYGrid: true,
   gridStyle: 'solid',
-  marker: { size: 6, color: '#000000' },
-  lineWidth: 1.5,
+  marker: { size: 8, color: '#000000' },
+  lineWidth: 2,
 }
 
 /** 科展展板：粗軸線 + 大字級 + 高對比 */

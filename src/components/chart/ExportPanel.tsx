@@ -33,9 +33,9 @@ function downloadDataUrl(dataUrl: string, filename: string) {
 
 export function ExportPanel() {
   const [format, setFormat] = useState<Format>('png')
-  const [width, setWidth] = useState(1920)
-  const [height, setHeight] = useState(1080)
-  const [scale, setScale] = useState(2)
+  const [width, setWidth] = useState(1200)
+  const [height, setHeight] = useState(800)
+  const [scale, setScale] = useState(3)
   const [filename, setFilename] = useState(defaultFileName('png'))
   const [loading, setLoading] = useState(false)
 
@@ -131,7 +131,7 @@ export function ExportPanel() {
             ))}
           </div>
           <p className="text-[10px] text-neutral-400">
-            1920×1080 以 2× 匯出 = 3840×2160，可達 300 DPI 印刷需求
+            1200×800 以 3× 匯出 = 3600×2400，可達 300 DPI 印刷需求
           </p>
         </div>
       )}

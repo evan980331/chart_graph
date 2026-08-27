@@ -66,9 +66,9 @@ export function MainLayout() {
     try {
       const dataUrl = await Plotly.toImage(div, {
         format: 'png',
-        width: 1920,
-        height: 1080,
-        scale: 2,
+        width: 1200,
+        height: 800,
+        scale: 3,
       })
       downloadDataUrl(dataUrl, defaultExportName())
       toast('已匯出 PNG 圖表', 'success')
