@@ -1,17 +1,16 @@
-import { useMemo, useState, useCallback } from 'react'
-import Plotly from 'plotly.js-dist-min'
+import { useState, useCallback } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { useChartStore } from '@/stores/useChartStore'
 import { toast } from '@/utils/toast'
-import { resolveFontFamily } from '@/types/style'
+import {
+  exportChartAsDataUrl,
+  downloadDataUrl,
+} from '@/utils/exportChart'
 
 type Format = 'png' | 'svg'
-
-const GRAPH_DIV_ID = 'labplot-chart'
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -22,15 +21,6 @@ export function defaultFileName(ext: string): string {
   return `實驗_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.${ext}`
 }
 
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const a = document.createElement('a')
-  a.href = dataUrl
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-}
-
 export function ExportPanel() {
   const [format, setFormat] = useState<Format>('png')
   const [width, setWidth] = useState(1200)
@@ -38,10 +28,6 @@ export function ExportPanel() {
   const [scale, setScale] = useState(3)
   const [filename, setFilename] = useState(defaultFileName('png'))
   const [loading, setLoading] = useState(false)
-
-  const styleConfig = useChartStore((s) => s.styleConfig)
-
-  const family = useMemo(() => resolveFontFamily(styleConfig.font), [styleConfig.font])
 
   function handleFormatChange(f: Format) {
     setFormat(f)
@@ -52,45 +38,22 @@ export function ExportPanel() {
   }
 
   const doExport = useCallback(async () => {
-    const div = document.getElementById(GRAPH_DIV_ID)
-    if (!div) {
-      toast('找不到圖表，請先建立數據', 'error')
-      return
-    }
-
-    const finalName = (filename.trim() || defaultFileName(format)).replace(
-      /\.(png|svg)$/i,
-      '',
-    )
-
     setLoading(true)
     try {
-      ;(div as HTMLElement).style.fontFamily = family
-      // 先用 relayout 設定匯出尺寸，確保標題不被裁切
-      const gd = div as unknown as { _fullLayout?: { title?: { text?: string } } }
-      const hasTitle = !!gd._fullLayout?.title?.text
-      const extraTop = hasTitle ? 40 : 0
-
-      await Plotly.relayout(div, {
-        width,
-        height,
-        margin: { l: 70, r: 40, t: 60 + extraTop, b: 60 },
-      } as Partial<Plotly.Layout>)
-
-      const dataUrl = await Plotly.toImage(div as HTMLElement, {
+      const dataUrl = await exportChartAsDataUrl({
         format,
         width,
         height,
-        scale: format === 'png' ? scale : undefined,
+        scale,
       })
-
-      // 還原為自動尺寸
-      await Plotly.relayout(div, {
-        width: undefined,
-        height: undefined,
-        margin: { l: 70, r: 40, t: 60 + extraTop, b: 60 },
-      } as Partial<Plotly.Layout>)
-
+      if (!dataUrl) {
+        toast('找不到圖表，請先建立數據', 'error')
+        return
+      }
+      const finalName = (filename.trim() || defaultFileName(format)).replace(
+        /\.(png|svg)$/i,
+        '',
+      )
       downloadDataUrl(dataUrl, `${finalName}.${format}`)
       toast(`已匯出 ${finalName}.${format}`, 'success')
     } catch (err) {
@@ -99,7 +62,7 @@ export function ExportPanel() {
     } finally {
       setLoading(false)
     }
-  }, [format, width, height, scale, filename, family])
+  }, [format, width, height, scale, filename])
 
   return (
     <div className="space-y-3">
