@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/utils/cn'
 
 const SYMBOLS = ['Δ', 'μ', '±', 'α', 'β', 'θ', 'π', 'R²', '°C', 'Ω']
 

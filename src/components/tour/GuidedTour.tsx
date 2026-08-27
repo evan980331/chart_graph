@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import Driver from 'driver.js'
-import 'driver.js/dist/driver.min.css'
+import { driver as createDriver, type DriverInstance } from 'driver.js'
+import 'driver.js/dist/driver.css'
 
 interface GuidedTourProps {
   open: boolean
@@ -10,7 +10,7 @@ interface GuidedTourProps {
 const TOUR_STORAGE_KEY = 'labplot-tour-completed'
 
 export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
-  const driverRef = useRef<Driver | null>(null)
+  const driverRef = useRef<DriverInstance | null>(null)
 
   useEffect(() => {
     if (!open) {
@@ -20,7 +20,7 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
 
     driverRef.current?.reset()
 
-    const driver = new Driver({
+    const drv = createDriver({
       animate: true,
       opacity: 0.7,
       padding: 10,
@@ -35,7 +35,7 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
       },
     })
 
-    driver.defineSteps([
+    drv.defineSteps([
       {
         element: '[data-tour="import"]',
         popover: {
@@ -74,11 +74,10 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
       },
     ])
 
-    driver.start()
-    driverRef.current = driver
+    drv.start()
+    driverRef.current = drv
   }, [open, onOpenChange])
 
-  // 首次造訪自動觸發
   useEffect(() => {
     const completed = localStorage.getItem(TOUR_STORAGE_KEY)
     if (!completed) {
@@ -92,5 +91,3 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
 
   return null
 }
-
-

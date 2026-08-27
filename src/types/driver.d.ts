@@ -12,7 +12,7 @@ declare module 'driver.js' {
     closeBtnText?: string
     nextBtnText?: string
     prevBtnText?: string
-    showButtons?: boolean
+    showButtons?: string[]
     keyboardControl?: boolean
     scrollIntoViewOptions?: ScrollIntoOptions
     onHighlightStarted?: (element: Element, step: DriveStep, options: DriverOptions) => void
@@ -29,6 +29,8 @@ declare module 'driver.js' {
       title?: string
       description?: string
       position?: 'top' | 'right' | 'bottom' | 'left' | 'auto'
+      side?: string
+      align?: string
       className?: string
       doneBtnText?: string
       closeBtnText?: string
@@ -41,16 +43,17 @@ declare module 'driver.js' {
     }
   }
 
-  export default class Driver {
-    constructor(options?: DriverOptions)
-    highlight(step: DriveStep): Driver
-    defineSteps(steps: DriveStep[]): Driver
-    start(stepIndex?: number): Driver
-    moveNext(): Driver
-    movePrevious(): Driver
+  export interface DriverInstance {
+    highlight(step: DriveStep): DriverInstance
+    defineSteps(steps: DriveStep[]): DriverInstance
+    start(stepIndex?: number): DriverInstance
+    moveNext(): DriverInstance
+    movePrevious(): DriverInstance
     hasNextStep(): boolean
     hasPreviousStep(): boolean
-    preventMove(): Driver
-    reset(): Driver
+    preventMove(): DriverInstance
+    reset(): DriverInstance
   }
+
+  export function driver(options?: DriverOptions): DriverInstance
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Sparkles, X, Check, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { allTemplates, SUBJECT_LABELS, SUBJECT_ORDER } from '@/constants/templates'
-import type { Subject, TemplateConfig } from '@/types/template'
+import { allTemplates } from '@/constants/templates'
+import { SUBJECT_LABELS, SUBJECT_ORDER, type Subject } from '@/types/template'
+import type { TemplateConfig } from '@/types/template'
 import { useChartStore } from '@/stores/useChartStore'
 import { toast } from '@/utils/toast'
 
@@ -67,7 +68,7 @@ export function TemplateModal({ open, onOpenChange }: TemplateModalProps) {
         <div className="flex flex-1 min-h-0">
           {/* Left Sidebar: Subjects */}
           <div className="w-56 shrink-0 border-r border-neutral-200 bg-neutral-50 p-3 space-y-1">
-            {SUBJECT_ORDER.map((subj) => (
+            {SUBJECT_ORDER.map((subj: Subject) => (
               <button
                 key={subj}
                 type="button"

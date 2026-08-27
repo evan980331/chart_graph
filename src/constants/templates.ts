@@ -1,6 +1,6 @@
 ﻿import type { RawRow } from '@/utils/fileParser'
 import type { Subject, TemplateConfig } from '@/types/template'
-import type { ChartType } from '@/types/chart'
+
 import {
   DEFAULT_REGRESSION,
   DEFAULT_ERROR_BAR,
@@ -37,8 +37,8 @@ function reg(patch: Partial<RegressionSettings>): RegressionSettings {
 
 function errBar(patch: Partial<ErrorBarConfig>): ErrorBarConfig {
   return {
-    x: { ...DEFAULT_ERROR_BAR.x },
-    y: { ...DEFAULT_ERROR_BAR.y },
+    x: { ...DEFAULT_ERROR_BAR },
+    y: { ...DEFAULT_ERROR_BAR },
     ...patch,
   }
 }
@@ -242,7 +242,7 @@ const templates: TemplateConfig[] = [
     },
     regression: reg({ enabled: false }),
     errorBar: errBar({
-      y: { ...DEFAULT_ERROR_BAR.y, source: 'field', color: '#000000', capSize: 4, thickness: 1 },
+      y: { ...DEFAULT_ERROR_BAR, source: 'field', color: '#000000', capSize: 4, thickness: 1 },
     }),
     styleConfig: style({}),
   },
@@ -279,7 +279,7 @@ const templates: TemplateConfig[] = [
     },
     regression: reg({ enabled: false }),
     errorBar: errBar({
-      y: { ...DEFAULT_ERROR_BAR.y, source: 'field', color: '#000000', capSize: 4, thickness: 1 },
+      y: { ...DEFAULT_ERROR_BAR, source: 'field', color: '#000000', capSize: 4, thickness: 1 },
     }),
     styleConfig: style({}),
   },
