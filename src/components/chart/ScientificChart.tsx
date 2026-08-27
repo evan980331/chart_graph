@@ -14,6 +14,10 @@ import {
 } from '@/utils/mathStats'
 import type { AxisConfig } from '@/types/chart'
 import type { AxisErrorBarSettings, RegressionSettings } from '@/types/analysis'
+import {
+  resolveFontFamily,
+  type ChartStyleConfig,
+} from '@/types/style'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -128,6 +132,7 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
   const errorBar = useChartStore((s) => s.errorBar)
   const rawData = useChartStore((s) => s.rawData)
   const mapping = useChartStore((s) => s.mapping)
+  const styleConfig = useChartStore((s) => s.styleConfig)
 
   // 衍生資料以 useMemo 快取，避免每次 render 產生新陣列造成無限重繪
   const points = useMemo<CleanPoint[]>(() => {
@@ -162,8 +167,8 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
     const base: Omit<Plotly.Data, 'type'> = {
       x: points.map((p) => p.x),
       y: points.map((p) => p.y),
-      marker: { size: 6, color: '#000000' },
-      line: { color: '#000000', width: 1.5 },
+      marker: { ...styleConfig.marker },
+      line: { color: styleConfig.axisColor, width: styleConfig.lineWidth },
       name: '實驗數據',
       showlegend: false,
     }
@@ -190,7 +195,7 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
       series.push({
         ...base,
         type: 'bar',
-        marker: { color: '#000000' },
+        marker: { color: styleConfig.marker.color },
         error_y: base.error_y,
       })
     }
@@ -201,10 +206,11 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
     }
 
     return series
-  }, [points, chartType, regression, errorBar, fit])
+  }, [points, chartType, regression, errorBar, fit, styleConfig])
 
   const layout = useMemo<Partial<Plotly.Layout>>(() => {
     const { xAxis, yAxis } = config
+    const family = resolveFontFamily(styleConfig.font)
     const regressionText =
       fit && !Number.isNaN(fit.r2)
         ? `${fit.formula}  (R² = ${formatR2(fit.r2)})`
@@ -213,17 +219,31 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
     return {
       title: {
         text: config.title,
-        font: { size: 16, color: '#000000' },
+        font: { size: styleConfig.fontSize, color: styleConfig.axisColor, family },
         x: 0.5,
         xanchor: 'center',
       },
       paper_bgcolor: '#FFFFFF',
       plot_bgcolor: '#FFFFFF',
-      font: { family: 'Arial, sans-serif', color: '#000000', size: 13 },
+      font: { family, color: styleConfig.axisColor, size: styleConfig.tickFontSize },
       autosize: true,
       margin: { l: 70, r: 40, t: 60, b: 60 },
-      xaxis: buildAxis(xAxis, config.showGrid),
-      yaxis: buildAxis(yAxis, config.showGrid),
+      xaxis: buildAxis(
+        xAxis,
+        styleConfig,
+        styleConfig.showXGrid,
+        styleConfig.xMin,
+        styleConfig.xMax,
+        styleConfig.xStep,
+      ),
+      yaxis: buildAxis(
+        yAxis,
+        styleConfig,
+        styleConfig.showYGrid,
+        styleConfig.yMin,
+        styleConfig.yMax,
+        styleConfig.yStep,
+      ),
       barmode: 'group',
       annotations: regressionText
         ? [
@@ -236,13 +256,13 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
               yanchor: 'bottom',
               showarrow: false,
               text: regressionText,
-              font: { size: 12, color: '#000000' },
+              font: { size: 12, color: '#000000', family },
               align: 'left',
             },
           ]
         : [],
     }
-  }, [config, fit])
+  }, [config, fit, styleConfig])
 
   const plotConfig = useMemo(
     () => ({
@@ -264,27 +284,37 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
       layout={layout}
       config={plotConfig}
       useResizeHandler={true}
+      divId="labplot-chart"
       style={{ width: '100%', height }}
       className="w-full"
     />
   )
 }
 
-function buildAxis(axis: AxisConfig, showGrid: boolean): Partial<Plotly.LayoutAxis> {
+function buildAxis(
+  axis: AxisConfig,
+  style: ChartStyleConfig,
+  showGrid: boolean,
+  rangeMin?: number,
+  rangeMax?: number,
+  dtick?: number,
+): Partial<Plotly.LayoutAxis> {
   return {
     title: { text: axisTitle(axis.label, axis.unit) },
-    tickcolor: '#000000',
-    ticks: 'outside',
+    tickcolor: style.axisColor,
+    ticks: style.tickDirection,
     ticklen: 6,
+    tickfont: { size: style.tickFontSize, family: resolveFontFamily(style.font) },
     showline: true,
-    linecolor: '#000000',
-    linewidth: 1,
+    linecolor: style.axisColor,
+    linewidth: style.axisWidth,
     zeroline: false,
     showgrid: showGrid,
     gridcolor: '#E5E7EB',
     gridwidth: 1,
+    griddash: style.gridStyle === 'dashed' ? 'dash' : undefined,
     range:
-      axis.min != null && axis.max != null ? [axis.min, axis.max] : undefined,
-    dtick: axis.step,
+      rangeMin != null && rangeMax != null ? [rangeMin, rangeMax] : undefined,
+    dtick,
   }
 }

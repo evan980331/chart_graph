@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { extractColumns, type RawRow } from '@/utils/fileParser'
 import { mockChartConfig, mockData } from '@/constants/mockData'
 import type { ChartConfig, ChartType, ColumnMapping } from '@/types/chart'
@@ -8,6 +9,10 @@ import {
   type ErrorBarConfig,
   type RegressionSettings,
 } from '@/types/analysis'
+import {
+  DEFAULT_STYLE_CONFIG,
+  type ChartStyleConfig,
+} from '@/types/style'
 
 export interface CleanPoint {
   x: number
@@ -35,6 +40,7 @@ interface ChartStore {
   invalidCount: number
   regression: RegressionSettings
   errorBar: ErrorBarConfig
+  styleConfig: ChartStyleConfig
 
   importRows: (rows: RawRow[]) => void
   updateRawData: (rows: RawRow[]) => void
@@ -43,10 +49,25 @@ interface ChartStore {
   setConfig: (config: ChartConfig) => void
   setRegression: (settings: RegressionSettings) => void
   setErrorBar: (config: ErrorBarConfig) => void
+  setStyleConfig: (config: ChartStyleConfig) => void
   addRow: () => void
   removeRow: (index: number) => void
   clearData: () => void
   updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => void
+
+  resetProject: () => void
+  loadProject: (partial: ProjectPayload) => void
+}
+
+/** 可序列化、可被持久化/匯出的專案子集 */
+export interface ProjectPayload {
+  rawData: RawRow[]
+  mapping: ColumnMapping
+  chartType: ChartType
+  config: ChartConfig
+  regression: RegressionSettings
+  errorBar: ErrorBarConfig
+  styleConfig: ChartStyleConfig
 }
 
 function detectErrorColumn(columns: string[], primary: string): string | undefined {
@@ -81,76 +102,134 @@ const INITIAL_MAPPING: ColumnMapping = {
   yError: 'yError',
 }
 
-export const useChartStore = create<ChartStore>()((set, get) => ({
-  rawData: INITIAL_ROWS,
-  columns: extractColumns(INITIAL_ROWS),
-  mapping: INITIAL_MAPPING,
-  chartType: 'scatter',
-  config: mockChartConfig,
-  invalidCount: 0,
-  regression: DEFAULT_REGRESSION,
-  errorBar: DEFAULT_ERROR_BAR_CONFIG,
+export const useChartStore = create<ChartStore>()(
+  persist(
+    (set, get) => ({
+      rawData: INITIAL_ROWS,
+      columns: extractColumns(INITIAL_ROWS),
+      mapping: INITIAL_MAPPING,
+      chartType: 'scatter',
+      config: mockChartConfig,
+      invalidCount: 0,
+      regression: DEFAULT_REGRESSION,
+      errorBar: DEFAULT_ERROR_BAR_CONFIG,
+      styleConfig: DEFAULT_STYLE_CONFIG,
 
-  importRows: (rows) => {
-    const columns = extractColumns(rows)
-    const mapping = inferMapping(columns)
-    set({ rawData: rows, columns, mapping })
-    get().updateInvalidCount(rows, mapping)
-  },
+      importRows: (rows) => {
+        const columns = extractColumns(rows)
+        const mapping = inferMapping(columns)
+        set({ rawData: rows, columns, mapping })
+        get().updateInvalidCount(rows, mapping)
+      },
 
-  updateRawData: (rows) => {
-    const columns = extractColumns(rows)
-    const current = get().mapping
-    const mapping: ColumnMapping = {
-      xAxis: current.xAxis,
-      yAxis: current.yAxis,
-      xError:
-        current.xError && columns.includes(current.xError)
-          ? current.xError
-          : undefined,
-      yError:
-        current.yError && columns.includes(current.yError)
-          ? current.yError
-          : undefined,
-    }
-    set({ rawData: rows, columns, mapping })
-    get().updateInvalidCount(rows, mapping)
-  },
+      updateRawData: (rows) => {
+        const columns = extractColumns(rows)
+        const current = get().mapping
+        const mapping: ColumnMapping = {
+          xAxis: current.xAxis,
+          yAxis: current.yAxis,
+          xError:
+            current.xError && columns.includes(current.xError)
+              ? current.xError
+              : undefined,
+          yError:
+            current.yError && columns.includes(current.yError)
+              ? current.yError
+              : undefined,
+        }
+        set({ rawData: rows, columns, mapping })
+        get().updateInvalidCount(rows, mapping)
+      },
 
-  setMapping: (mapping) => {
-    set({ mapping })
-    get().updateInvalidCount(get().rawData, mapping)
-  },
+      setMapping: (mapping) => {
+        set({ mapping })
+        get().updateInvalidCount(get().rawData, mapping)
+      },
 
-  setChartType: (chartType) => set({ chartType }),
-  setConfig: (config) => set({ config }),
-  setRegression: (regression) => set({ regression }),
-  setErrorBar: (errorBar) => set({ errorBar }),
+      setChartType: (chartType) => set({ chartType }),
+      setConfig: (config) => set({ config }),
+      setRegression: (regression) => set({ regression }),
+      setErrorBar: (errorBar) => set({ errorBar }),
+      setStyleConfig: (styleConfig) => set({ styleConfig }),
 
-  addRow: () => {
-    const row: RawRow = {}
-    get().columns.forEach((col) => (row[col] = null))
-    get().updateRawData([...get().rawData, row])
-  },
+      addRow: () => {
+        const row: RawRow = {}
+        get().columns.forEach((col) => (row[col] = null))
+        get().updateRawData([...get().rawData, row])
+      },
 
-  removeRow: (index) => {
-    const rows = get().rawData.filter((_, i) => i !== index)
-    get().updateRawData(rows)
-  },
+      removeRow: (index) => {
+        const rows = get().rawData.filter((_, i) => i !== index)
+        get().updateRawData(rows)
+      },
 
-  clearData: () => {
-    set({ rawData: [], columns: [], mapping: EMPTY_MAPPING, invalidCount: 0 })
-  },
+      clearData: () => {
+        set({ rawData: [], columns: [], mapping: EMPTY_MAPPING, invalidCount: 0 })
+      },
 
-  updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => {
-    const count = rows.filter((row) => {
-      const x = toNumber(row[mapping.xAxis])
-      const y = toNumber(row[mapping.yAxis])
-      return x === null || y === null
-    }).length
-    set({ invalidCount: count })
-  },
-}))
+      updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => {
+        const count = rows.filter((row) => {
+          const x = toNumber(row[mapping.xAxis])
+          const y = toNumber(row[mapping.yAxis])
+          return x === null || y === null
+        }).length
+        set({ invalidCount: count })
+      },
+
+      resetProject: () => {
+        set({
+          rawData: [],
+          columns: [],
+          mapping: EMPTY_MAPPING,
+          chartType: 'scatter',
+          config: mockChartConfig,
+          invalidCount: 0,
+          regression: DEFAULT_REGRESSION,
+          errorBar: DEFAULT_ERROR_BAR_CONFIG,
+          styleConfig: DEFAULT_STYLE_CONFIG,
+        })
+      },
+
+      loadProject: (partial) => {
+        const columns = extractColumns(partial.rawData)
+        set({
+          rawData: partial.rawData,
+          columns,
+          mapping: partial.mapping,
+          chartType: partial.chartType,
+          config: partial.config,
+          regression: partial.regression,
+          errorBar: partial.errorBar,
+          styleConfig: partial.styleConfig,
+        })
+        get().updateInvalidCount(partial.rawData, partial.mapping)
+      },
+    }),
+    {
+      name: 'labplot-project',
+      partialize: (state) => ({
+        rawData: state.rawData,
+        mapping: state.mapping,
+        chartType: state.chartType,
+        config: state.config,
+        regression: state.regression,
+        errorBar: state.errorBar,
+        styleConfig: state.styleConfig,
+      }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<ChartStore> | undefined
+        const rawData = Array.isArray(p?.rawData) ? p.rawData : current.rawData
+        return {
+          ...current,
+          ...p,
+          rawData,
+          columns: extractColumns(rawData),
+          mapping: p?.mapping ?? current.mapping,
+        }
+      },
+    },
+  ),
+)
 
 export function selectCleanData(state: ChartStore): CleanPoint[] {
   const { rawData, mapping } = state

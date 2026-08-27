@@ -2,6 +2,7 @@ import { Header } from '@/components/layout/Header'
 import { DataPanel } from '@/components/data/DataPanel'
 import { StylePanel } from '@/components/chart/StylePanel'
 import { ScientificChart } from '@/components/chart/ScientificChart'
+import { ToastHost } from '@/components/ui/ToastHost'
 import { useChartStore } from '@/stores/useChartStore'
 
 export function MainLayout() {
@@ -10,6 +11,7 @@ export function MainLayout() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-100 text-neutral-900">
       <Header />
+      <ToastHost />
 
       <div className="flex min-h-0 flex-1">
         <DataPanel />

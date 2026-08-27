@@ -4,6 +4,10 @@ import { Label } from '@/components/ui/label'
 import { ChartTypeSelector } from '@/components/chart/ChartTypeSelector'
 import { RegressionPanel } from '@/components/chart/RegressionPanel'
 import { ErrorBarPanel } from '@/components/chart/ErrorBarPanel'
+import { ChartStyleEditor } from '@/components/chart/ChartStyleEditor'
+import { ThemePresets } from '@/components/chart/ThemePresets'
+import { ExportPanel } from '@/components/chart/ExportPanel'
+import { ProjectPanel } from '@/components/chart/ProjectPanel'
 import type { AxisConfig, ChartConfig } from '@/types/chart'
 
 interface StylePanelProps {
@@ -144,7 +148,7 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
             <ErrorBarPanel />
           </AccordionItem>
 
-          <AccordionItem title="樣式主題">
+          <AccordionItem title="標題與樣式">
             <div className="space-y-1.5">
               <Label htmlFor="chart-title">圖表標題</Label>
               <Input
@@ -166,6 +170,21 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
                 className="h-4 w-4 accent-neutral-900"
               />
             </label>
+            <div className="pt-2">
+              <ThemePresets />
+            </div>
+          </AccordionItem>
+
+          <AccordionItem title="進階樣式">
+            <ChartStyleEditor />
+          </AccordionItem>
+
+          <AccordionItem title="匯出圖表">
+            <ExportPanel />
+          </AccordionItem>
+
+          <AccordionItem title="專案存檔">
+            <ProjectPanel />
           </AccordionItem>
         </Accordion>
       </div>
