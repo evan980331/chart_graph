@@ -6,21 +6,18 @@ import { ScientificChart } from '@/components/chart/ScientificChart'
 import { ToastHost } from '@/components/ui/ToastHost'
 import { TemplateModal } from '@/components/template/TemplateModal'
 import { FeedbackModal } from '@/components/feedback/FeedbackModal'
-import { GuidedTour } from '@/components/tour/GuidedTour'
 import { useChartStore } from '@/stores/useChartStore'
 
 export function MainLayout() {
   const setConfig = useChartStore((s) => s.setConfig)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const [tourOpen, setTourOpen] = useState(false)
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-100 text-neutral-900">
       <Header
         onTemplate={() => setTemplateOpen(true)}
         onFeedback={() => setFeedbackOpen(true)}
-        onTour={() => setTourOpen(true)}
       />
       <ToastHost />
 
@@ -39,7 +36,6 @@ export function MainLayout() {
 
       <TemplateModal open={templateOpen} onOpenChange={setTemplateOpen} />
       <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <GuidedTour open={tourOpen} onOpenChange={setTourOpen} />
     </div>
   )
 }

@@ -4,7 +4,6 @@ import {
   FlaskConical,
   Sparkles,
   Lightbulb,
-  BookOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -13,7 +12,6 @@ interface HeaderProps {
   onExport?: () => void
   onTemplate?: () => void
   onFeedback?: () => void
-  onTour?: () => void
 }
 
 export function Header({
@@ -21,7 +19,6 @@ export function Header({
   onExport,
   onTemplate,
   onFeedback,
-  onTour,
 }: HeaderProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4">
@@ -57,16 +54,10 @@ export function Header({
           <Download className="h-4 w-4" />
           匯出圖表
         </Button>
-        <div className="ml-1 flex items-center gap-1 border-l border-neutral-200 pl-2">
-          <Button variant="ghost" size="sm" onClick={onTour}>
-            <BookOpen className="h-4 w-4" />
-            教學導覽
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onFeedback}>
-            <Lightbulb className="h-4 w-4" />
-            問題與建議
-          </Button>
-        </div>
+        <Button variant="ghost" size="sm" onClick={onFeedback}>
+          <Lightbulb className="h-4 w-4" />
+          問題與建議
+        </Button>
       </div>
     </header>
   )

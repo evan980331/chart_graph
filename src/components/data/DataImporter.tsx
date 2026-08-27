@@ -110,7 +110,7 @@ export function DataImporter() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === 'input' ? (
-          <div className="space-y-3" data-tour="import">
+          <div className="space-y-3">
             <input
               ref={fileInputRef}
               type="file"

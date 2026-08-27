@@ -122,7 +122,7 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
         </div>
 
         <Accordion>
-          <AccordionItem title="軸線標籤" dataTour="axis" defaultOpen>
+          <AccordionItem title="軸線標籤" defaultOpen>
             <AxisFields
               axis="xAxis"
               value={config.xAxis}
