@@ -1,8 +1,8 @@
 import { lazy, Suspense, useRef, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { DataPanel } from '@/components/data/DataPanel'
+import { DataTablePanel } from '@/components/data/DataTablePanel'
 import { StylePanel } from '@/components/chart/StylePanel'
-import { Resizer } from '@/components/ui/Resizer'
 import { ToastHost } from '@/components/ui/ToastHost'
 import { TemplateModal } from '@/components/template/TemplateModal'
 import { FeedbackModal } from '@/components/feedback/FeedbackModal'
@@ -32,6 +32,7 @@ function ChartSkeleton({ height = 480 }: { height?: number }) {
 }
 
 type MobileTab = 'data' | 'chart' | 'style'
+type CenterTab = 'chart' | 'data'
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -42,6 +43,31 @@ function defaultExportName(): string {
   return `實驗_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.png`
 }
 
+function CenterTabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+        active
+          ? 'bg-neutral-900 text-white'
+          : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function MainLayout() {
   const setConfig = useChartStore((s) => s.setConfig)
   const importRows = useChartStore((s) => s.importRows)
@@ -50,9 +76,8 @@ export function MainLayout() {
   const [featuresOpen, setFeaturesOpen] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
   const [mobileTab, setMobileTab] = useState<MobileTab>('chart')
+  const [centerTab, setCenterTab] = useState<CenterTab>('chart')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [styleWidth, setStyleWidth] = useState(320)
-  const [dataHeight, setDataHeight] = useState(300)
 
   async function handleExportPng() {
     try {
@@ -120,55 +145,37 @@ export function MainLayout() {
       />
       <ToastHost />
 
-      {/* Desktop: resizable layout (>= 1024px)
-          - 上方：圖表 (flex) + 屬性面板 (可拖曳寬度)
-          - 下方：數據表格 (全寬，可拖曳高度) */}
-      <div className="hidden min-h-0 flex-1 flex-col lg:flex">
-        <div className="flex min-h-0 flex-1">
-          <main className="flex min-w-0 flex-1 flex-col p-4">
-            <div className="flex min-h-0 flex-1 items-stretch justify-center">
-              <Suspense fallback={<ChartSkeleton />}>
-                <ScientificChart fill />
-              </Suspense>
-            </div>
-            <p className="mt-2 shrink-0 text-center text-xs text-neutral-400">
-              匯入數據後可切換散佈 / 折線 / 柱狀圖，拖曳分隔線可調整面板大小。
-            </p>
-          </main>
-
-          <Resizer
-            orientation="vertical"
-            value={styleWidth}
-            min={240}
-            max={560}
-            onChange={setStyleWidth}
-            ariaLabel="調整屬性面板寬度"
-          />
-          <div
-            style={{ width: styleWidth }}
-            className="flex h-full shrink-0 flex-col"
-          >
-            <StylePanel
-              config={useChartStore((s) => s.config)}
-              onChange={setConfig}
-            />
+      {/* Desktop: 3-column original layout (>= 1024px)
+          - 左：數據輸入 / 右：屬性設定
+          - 中：圖表預覽 與 數據表格 切換分頁 */}
+      <div className="hidden min-h-0 flex-1 lg:flex">
+        <DataPanel />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center gap-1 border-b border-neutral-200 bg-white px-3 py-2">
+            <CenterTabButton active={centerTab === 'chart'} onClick={() => setCenterTab('chart')}>
+              圖表預覽
+            </CenterTabButton>
+            <CenterTabButton active={centerTab === 'data'} onClick={() => setCenterTab('data')}>
+              數據表格
+            </CenterTabButton>
           </div>
-        </div>
 
-        <Resizer
-          orientation="horizontal"
-          value={dataHeight}
-          min={160}
-          max={600}
-          onChange={setDataHeight}
-          ariaLabel="調整數據面板高度"
-        />
-        <div
-          style={{ height: dataHeight }}
-          className="flex shrink-0 flex-col"
-        >
-          <DataPanel variant="bottom" />
-        </div>
+          {centerTab === 'chart' ? (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6">
+              <div className="flex min-h-0 w-full flex-1 items-stretch justify-center">
+                <Suspense fallback={<ChartSkeleton />}>
+                  <ScientificChart fill />
+                </Suspense>
+              </div>
+              <p className="text-xs text-neutral-400">
+                匯入數據後可切換散佈 / 折線 / 柱狀圖，調整視窗大小時圖表會自動響應。
+              </p>
+            </div>
+          ) : (
+            <DataTablePanel />
+          )}
+        </main>
+        <StylePanel config={useChartStore((s) => s.config)} onChange={setConfig} />
       </div>
 
       {/* Mobile/Tablet: tabbed layout (< 1024px) */}
