@@ -68,9 +68,16 @@ export async function exportChartAsDataUrl(
     layout.width = options.width
     layout.height = options.height
     layout.autosize = false
-    // 確保標題有足夠空間
+    // 確保標題有足夠空間：margin.t = 字級 + 上下留白 30px
     if (layout.title) {
-      layout.margin = { ...(layout.margin as Record<string, unknown> || {}), t: 100 }
+      const titleFontSize =
+        (layout.title as Record<string, unknown>)?.font &&
+        typeof (layout.title as Record<string, unknown>).font === 'object'
+          ? ((layout.title as Record<string, unknown>).font as Record<string, unknown>)?.size
+          : undefined
+      const t = typeof titleFontSize === 'number' ? titleFontSize + 40 : 120
+      const existingMargin = (layout.margin as Record<string, unknown>) || {}
+      layout.margin = { ...existingMargin, t }
     }
 
     await Plotly.newPlot(tempDiv, traces, layout as Partial<Plotly.Layout>, {
