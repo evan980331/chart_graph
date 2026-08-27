@@ -47,6 +47,11 @@ export async function parseCSV(file: File): Promise<RawRow[]> {
   })
 }
 
+export async function parseTxt(file: File): Promise<RawRow[]> {
+  const text = await file.text()
+  return parsePastedText(text)
+}
+
 export async function parseExcel(file: File): Promise<RawRow[]> {
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })

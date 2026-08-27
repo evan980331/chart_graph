@@ -54,6 +54,8 @@ interface ChartStore {
   setStyleConfig: (config: ChartStyleConfig) => void
   addRow: () => void
   removeRow: (index: number) => void
+  addColumn: (name: string) => void
+  removeColumn: (name: string) => void
   clearData: () => void
   updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => void
 
@@ -177,6 +179,30 @@ export const useChartStore = create<ChartStore>()(
 
         removeRow: (index) => {
           const rows = get().rawData.filter((_, i) => i !== index)
+          get().updateRawData(rows)
+        },
+
+        addColumn: (name: string) => {
+          const trimmed = name.trim()
+          if (!trimmed || get().columns.includes(trimmed)) return
+          const rows = get().rawData.map((row) => ({ ...row, [trimmed]: null }))
+          get().updateRawData(rows)
+        },
+
+        removeColumn: (name: string) => {
+          const rows = get().rawData.map((row) => {
+            const next = { ...row }
+            delete next[name]
+            return next
+          })
+          const current = get().mapping
+          const mapping: ColumnMapping = {
+            xAxis: current.xAxis === name ? '' : current.xAxis,
+            yAxis: current.yAxis === name ? '' : current.yAxis,
+            xError: current.xError === name ? undefined : current.xError,
+            yError: current.yError === name ? undefined : current.yError,
+          }
+          set({ mapping })
           get().updateRawData(rows)
         },
 

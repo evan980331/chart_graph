@@ -22,6 +22,15 @@ export function defaultFileName(ext: string): string {
   return `實驗_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.${ext}`
 }
 
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
 export function ExportPanel() {
   const [format, setFormat] = useState<Format>('png')
   const [width, setWidth] = useState(1920)
@@ -36,7 +45,6 @@ export function ExportPanel() {
 
   function handleFormatChange(f: Format) {
     setFormat(f)
-    // 切換格式時同步更新檔名副檔名
     setFilename((prev) => {
       const base = prev.replace(/\.(png|svg)$/i, '')
       return `${base}.${f}`
@@ -54,20 +62,17 @@ export function ExportPanel() {
       /\.(png|svg)$/i,
       '',
     )
-    const opts = {
-      format,
-      width,
-      height,
-      scale: format === 'png' ? scale : undefined,
-      filename: finalName,
-    }
 
     setLoading(true)
     try {
-      // 運用目前的樣式字體作為匯出字型
       ;(div as HTMLElement).style.fontFamily = family
-      // downloadImage 僅輸出繪圖區，不包含 modebar（互動工具列）
-      await Plotly.downloadImage(div as HTMLElement, opts)
+      const dataUrl = await Plotly.toImage(div as HTMLElement, {
+        format,
+        width,
+        height,
+        scale: format === 'png' ? scale : undefined,
+      })
+      downloadDataUrl(dataUrl, `${finalName}.${format}`)
       toast(`已匯出 ${finalName}.${format}`, 'success')
     } catch (err) {
       console.error('[Export] 匯出失敗：', err)

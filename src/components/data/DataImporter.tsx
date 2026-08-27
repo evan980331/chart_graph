@@ -8,13 +8,16 @@ import {
   UploadCloud,
   Eraser,
   X,
+  Columns3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/utils/cn'
 import { useChartStore } from '@/stores/useChartStore'
 import {
   parseCSV,
   parseExcel,
+  parseTxt,
   parsePastedText,
   type RawRow,
 } from '@/utils/fileParser'
@@ -28,12 +31,15 @@ export function DataImporter() {
   const updateRawData = useChartStore((s) => s.updateRawData)
   const addRow = useChartStore((s) => s.addRow)
   const removeRow = useChartStore((s) => s.removeRow)
+  const addColumn = useChartStore((s) => s.addColumn)
+  const removeColumn = useChartStore((s) => s.removeColumn)
   const clearData = useChartStore((s) => s.clearData)
 
   const [tab, setTab] = useState<Tab>('input')
   const [pasteText, setPasteText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [newColName, setNewColName] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleParsed(rows: RawRow[], source: string) {
@@ -56,8 +62,10 @@ export function DataImporter() {
         file.name.endsWith('.xls')
       ) {
         handleParsed(await parseExcel(file), file.name)
+      } else if (file.name.endsWith('.txt')) {
+        handleParsed(await parseTxt(file), file.name)
       } else {
-        setError('僅支援 .csv 或 .xlsx 檔案')
+        setError('僅支援 .csv、.xlsx 或 .txt 檔案')
       }
     } catch (e) {
       setError(`解析失敗：${(e as Error).message}`)
@@ -80,6 +88,13 @@ export function DataImporter() {
   function onPaste() {
     const rows = parsePastedText(pasteText)
     handleParsed(rows, '貼上內容')
+  }
+
+  function handleAddColumn() {
+    const name = newColName.trim()
+    if (!name) return
+    addColumn(name)
+    setNewColName('')
   }
 
   return (
@@ -114,7 +129,7 @@ export function DataImporter() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv,.xlsx,.xls,.txt"
               className="hidden"
               onChange={onInputChange}
             />
@@ -135,7 +150,7 @@ export function DataImporter() {
             >
               <FileUp className="h-6 w-6" />
               <span className="text-xs">
-                拖曳 .csv / .xlsx 檔案至此處，或點擊選擇
+                拖曳 .csv / .xlsx / .txt 檔案至此處，或點擊選擇
               </span>
             </div>
 
@@ -183,7 +198,11 @@ export function DataImporter() {
             }}
             onAddRow={addRow}
             onRemoveRow={removeRow}
+            onRemoveColumn={removeColumn}
             onClear={clearData}
+            newColName={newColName}
+            onNewColNameChange={setNewColName}
+            onAddColumn={handleAddColumn}
           />
         )}
       </div>
@@ -197,7 +216,11 @@ interface DataGridProps {
   onCellChange: (rowIndex: number, col: string, value: string) => void
   onAddRow: () => void
   onRemoveRow: (index: number) => void
+  onRemoveColumn: (name: string) => void
   onClear: () => void
+  newColName: string
+  onNewColNameChange: (v: string) => void
+  onAddColumn: () => void
 }
 
 function DataGrid({
@@ -206,7 +229,11 @@ function DataGrid({
   onCellChange,
   onAddRow,
   onRemoveRow,
+  onRemoveColumn,
   onClear,
+  newColName,
+  onNewColNameChange,
+  onAddColumn,
 }: DataGridProps) {
   if (rawData.length === 0) {
     return (
@@ -218,17 +245,32 @@ function DataGrid({
   }
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={onAddRow}>
           <Plus className="h-3.5 w-3.5" />
           新增行
         </Button>
+        <div className="flex items-center gap-1">
+          <Input
+            value={newColName}
+            onChange={(e) => onNewColNameChange(e.target.value)}
+            placeholder="新欄位名"
+            className="h-8 w-28 text-xs"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onAddColumn()
+            }}
+          />
+          <Button size="sm" variant="secondary" onClick={onAddColumn}>
+            <Columns3 className="h-3.5 w-3.5" />
+            新增欄
+          </Button>
+        </div>
         <Button size="sm" variant="ghost" onClick={onClear}>
           <Eraser className="h-3.5 w-3.5" />
           清空
         </Button>
         <span className="ml-auto text-xs text-neutral-400">
-          {rawData.length} 筆
+          {rawData.length} 筆 × {columns.length} 欄
         </span>
       </div>
 
@@ -236,15 +278,25 @@ function DataGrid({
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="bg-neutral-50">
-              <th className="w-8 border-b border-neutral-200 px-2 py-1.5 text-left font-medium text-neutral-500">
+              <th className="w-8 border-b border-r border-neutral-200 px-2 py-1.5 text-left font-medium text-neutral-500">
                 #
               </th>
               {columns.map((col) => (
                 <th
                   key={col}
-                  className="border-b border-r border-neutral-200 px-2 py-1.5 text-left font-medium text-neutral-700 last:border-r-0"
+                  className="group border-b border-r border-neutral-200 px-2 py-1.5 text-left font-medium text-neutral-700 last:border-r-0"
                 >
-                  {col}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="truncate">{col}</span>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveColumn(col)}
+                      className="hidden shrink-0 rounded p-0.5 text-neutral-300 hover:bg-red-50 hover:text-red-600 group-hover:inline-block"
+                      aria-label={`刪除欄位 ${col}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 </th>
               ))}
               <th className="w-10 border-b border-neutral-200 px-2 py-1.5" />
