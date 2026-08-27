@@ -8,6 +8,7 @@ interface GuidedTourProps {
 }
 
 const TOUR_STORAGE_KEY = 'labplot-tour-completed'
+// v2 - driver.js API fix
 
 export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
   const driverRef = useRef<DriverInstance | null>(null)
