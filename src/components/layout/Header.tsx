@@ -1,12 +1,28 @@
-import { Download, FileUp, FlaskConical } from 'lucide-react'
+import {
+  Download,
+  FileUp,
+  FlaskConical,
+  Sparkles,
+  Lightbulb,
+  BookOpen,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface HeaderProps {
   onImport?: () => void
   onExport?: () => void
+  onTemplate?: () => void
+  onFeedback?: () => void
+  onTour?: () => void
 }
 
-export function Header({ onImport, onExport }: HeaderProps) {
+export function Header({
+  onImport,
+  onExport,
+  onTemplate,
+  onFeedback,
+  onTour,
+}: HeaderProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4">
       <div className="flex items-center gap-2.5">
@@ -24,6 +40,15 @@ export function Header({ onImport, onExport }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onTemplate}
+          data-tour="template"
+        >
+          <Sparkles className="h-4 w-4" />
+          使用範本
+        </Button>
         <Button variant="outline" size="sm" onClick={onImport}>
           <FileUp className="h-4 w-4" />
           匯入檔
@@ -32,6 +57,16 @@ export function Header({ onImport, onExport }: HeaderProps) {
           <Download className="h-4 w-4" />
           匯出圖表
         </Button>
+        <div className="ml-1 flex items-center gap-1 border-l border-neutral-200 pl-2">
+          <Button variant="ghost" size="sm" onClick={onTour}>
+            <BookOpen className="h-4 w-4" />
+            教學導覽
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onFeedback}>
+            <Lightbulb className="h-4 w-4" />
+            問題與建議
+          </Button>
+        </div>
       </div>
     </header>
   )

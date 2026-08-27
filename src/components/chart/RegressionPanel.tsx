@@ -23,7 +23,7 @@ export function RegressionPanel() {
 
   return (
     <div className="space-y-3">
-      <label className="flex items-center justify-between">
+      <label className="flex items-center justify-between" data-tour="regression">
         <span className="text-sm text-neutral-800">擬合曲線</span>
         <Switch
           checked={regression.enabled}

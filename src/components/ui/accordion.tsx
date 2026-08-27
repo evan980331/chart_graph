@@ -7,6 +7,7 @@ interface AccordionItemProps {
   children: ReactNode
   defaultOpen?: boolean
   className?: string
+  dataTour?: string
 }
 
 export function AccordionItem({
@@ -14,10 +15,12 @@ export function AccordionItem({
   children,
   defaultOpen = false,
   className,
+  dataTour,
 }: AccordionItemProps) {
   return (
     <details
       open={defaultOpen}
+      data-tour={dataTour}
       className={cn(
         'group border-b border-neutral-200 last:border-b-0',
         className,

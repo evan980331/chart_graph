@@ -1,16 +1,27 @@
+import { useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { DataPanel } from '@/components/data/DataPanel'
 import { StylePanel } from '@/components/chart/StylePanel'
 import { ScientificChart } from '@/components/chart/ScientificChart'
 import { ToastHost } from '@/components/ui/ToastHost'
+import { TemplateModal } from '@/components/template/TemplateModal'
+import { FeedbackModal } from '@/components/feedback/FeedbackModal'
+import { GuidedTour } from '@/components/tour/GuidedTour'
 import { useChartStore } from '@/stores/useChartStore'
 
 export function MainLayout() {
   const setConfig = useChartStore((s) => s.setConfig)
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-100 text-neutral-900">
-      <Header />
+      <Header
+        onTemplate={() => setTemplateOpen(true)}
+        onFeedback={() => setFeedbackOpen(true)}
+        onTour={() => setTourOpen(true)}
+      />
       <ToastHost />
 
       <div className="flex min-h-0 flex-1">
@@ -25,6 +36,10 @@ export function MainLayout() {
 
         <StylePanel config={useChartStore((s) => s.config)} onChange={setConfig} />
       </div>
+
+      <TemplateModal open={templateOpen} onOpenChange={setTemplateOpen} />
+      <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+      <GuidedTour open={tourOpen} onOpenChange={setTourOpen} />
     </div>
   )
 }

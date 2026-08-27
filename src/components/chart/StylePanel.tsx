@@ -1,6 +1,7 @@
 import { Accordion, AccordionItem } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SymbolPicker } from '@/components/chart/SymbolPicker'
 import { ChartTypeSelector } from '@/components/chart/ChartTypeSelector'
 import { RegressionPanel } from '@/components/chart/RegressionPanel'
 import { ErrorBarPanel } from '@/components/chart/ErrorBarPanel'
@@ -24,6 +25,10 @@ interface AxisFieldsProps {
 function AxisFields({ axis, value, onChange }: AxisFieldsProps) {
   const title = axis === 'xAxis' ? 'X 軸' : 'Y 軸'
 
+  function insertSymbol(symbol: string) {
+    onChange({ ...value, label: value.label + symbol })
+  }
+
   return (
     <fieldset className="space-y-2.5">
       <legend className="mb-1 text-xs font-medium text-neutral-500">
@@ -31,7 +36,10 @@ function AxisFields({ axis, value, onChange }: AxisFieldsProps) {
       </legend>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label htmlFor={`${axis}-label`}>標籤</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor={`${axis}-label`}>標籤</Label>
+            <SymbolPicker onInsert={insertSymbol} />
+          </div>
           <Input
             id={`${axis}-label`}
             value={value.label}
@@ -114,7 +122,7 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
         </div>
 
         <Accordion>
-          <AccordionItem title="軸線標籤" defaultOpen>
+          <AccordionItem title="軸線標籤" dataTour="axis" defaultOpen>
             <AxisFields
               axis="xAxis"
               value={config.xAxis}

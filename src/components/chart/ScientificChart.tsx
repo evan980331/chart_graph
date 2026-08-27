@@ -21,6 +21,14 @@ import {
 
 const Plot = createPlotlyComponent(Plotly)
 
+function DataWarning({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      {message}
+    </div>
+  )
+}
+
 interface ScientificChartProps {
   height?: number
 }
@@ -278,16 +286,43 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
     [],
   )
 
+  const warnings = useMemo(() => {
+    const msgs: string[] = []
+    if (mapping.xAxis && mapping.yAxis && points.length === 0) {
+      msgs.push('沒有可用的數據點，請確認 X/Y 軸欄位是否正確且包含數值。')
+    } else if (points.length === 1) {
+      msgs.push('數據點僅有 1 筆，無法進行回歸分析。')
+    } else if (points.length < 2 && regression.enabled) {
+      msgs.push('數據點少於 2 筆，無法進行線性擬合。')
+    }
+    if (regression.enabled && points.length >= 2) {
+      const allSameX = points.every((p) => p.x === points[0].x)
+      const allSameY = points.every((p) => p.y === points[0].y)
+      if (allSameX) {
+        msgs.push('所有數據點的 X 值均相同，無法計算回歸線斜率。')
+      }
+      if (allSameY) {
+        msgs.push('所有數據點的 Y 值均相同，回歸線斜率為 0。')
+      }
+    }
+    return msgs
+  }, [points, mapping, regression])
+
   return (
-    <Plot
-      data={traces}
-      layout={layout}
-      config={plotConfig}
-      useResizeHandler={true}
-      divId="labplot-chart"
-      style={{ width: '100%', height }}
-      className="w-full"
-    />
+    <div className="w-full">
+      {warnings.map((msg, i) => (
+        <DataWarning key={i} message={msg} />
+      ))}
+      <Plot
+        data={traces}
+        layout={layout}
+        config={plotConfig}
+        useResizeHandler={true}
+        divId="labplot-chart"
+        style={{ width: '100%', height }}
+        className="w-full"
+      />
+    </div>
   )
 }
 

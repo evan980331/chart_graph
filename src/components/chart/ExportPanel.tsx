@@ -136,6 +136,7 @@ export function ExportPanel() {
         disabled={loading}
         className="w-full"
         variant="default"
+        data-tour="export"
       >
         {loading ? (
           <>
