@@ -64,12 +64,31 @@ export function MainLayout() {
       return
     }
     try {
+      const gd = div as unknown as { _fullLayout?: { font?: { size?: number }; title?: { font?: { size?: number } } } }
+      const fl = gd._fullLayout || {}
+      const baseFontSize = fl.font?.size ?? 14
+      const baseTitleSize = fl.title?.font?.size ?? 18
+      const fontScale = 1.5
+
+      await Plotly.relayout(div, {
+        title: { font: { size: baseTitleSize * fontScale } },
+        font: { size: baseFontSize * fontScale },
+        margin: { l: 105, r: 60, t: 90, b: 90 },
+      } as Partial<Plotly.Layout>)
+
       const dataUrl = await Plotly.toImage(div, {
         format: 'png',
         width: 1200,
         height: 800,
         scale: 3,
       })
+
+      await Plotly.relayout(div, {
+        title: { font: { size: baseTitleSize } },
+        font: { size: baseFontSize },
+        margin: { l: 70, r: 40, t: 60, b: 60 },
+      } as Partial<Plotly.Layout>)
+
       downloadDataUrl(dataUrl, defaultExportName())
       toast('已匯出 PNG 圖表', 'success')
     } catch {
