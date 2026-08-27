@@ -235,7 +235,7 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
       plot_bgcolor: '#FFFFFF',
       font: { family, color: styleConfig.axisColor, size: styleConfig.tickFontSize },
       autosize: true,
-      margin: { l: 70, r: 40, t: 60, b: 60 },
+      margin: { l: 70, r: 40, t: 80, b: 60 },
       xaxis: buildAxis(
         xAxis,
         styleConfig,

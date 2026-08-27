@@ -64,16 +64,20 @@ export function MainLayout() {
       return
     }
     try {
-      const gd = div as unknown as { _fullLayout?: { font?: { size?: number }; title?: { font?: { size?: number } } } }
+      const gd = div as unknown as { _fullLayout?: { font?: { size?: number }; title?: { font?: { size?: number }; text?: string } } }
       const fl = gd._fullLayout || {}
       const baseFontSize = fl.font?.size ?? 14
       const baseTitleSize = fl.title?.font?.size ?? 18
       const fontScale = 1.5
+      const hasTitle = !!fl.title?.text
+      const extraTop = hasTitle ? 40 : 0
 
       await Plotly.relayout(div, {
         title: { font: { size: baseTitleSize * fontScale } },
         font: { size: baseFontSize * fontScale },
-        margin: { l: 105, r: 60, t: 90, b: 90 },
+        width: 1200,
+        height: 800,
+        margin: { l: 105, r: 60, t: 90 + extraTop, b: 90 },
       } as Partial<Plotly.Layout>)
 
       const dataUrl = await Plotly.toImage(div, {
@@ -86,6 +90,8 @@ export function MainLayout() {
       await Plotly.relayout(div, {
         title: { font: { size: baseTitleSize } },
         font: { size: baseFontSize },
+        width: undefined,
+        height: undefined,
         margin: { l: 70, r: 40, t: 60, b: 60 },
       } as Partial<Plotly.Layout>)
 

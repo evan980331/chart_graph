@@ -66,12 +66,31 @@ export function ExportPanel() {
     setLoading(true)
     try {
       ;(div as HTMLElement).style.fontFamily = family
+      // 先用 relayout 設定匯出尺寸，確保標題不被裁切
+      const gd = div as unknown as { _fullLayout?: { title?: { text?: string } } }
+      const hasTitle = !!gd._fullLayout?.title?.text
+      const extraTop = hasTitle ? 40 : 0
+
+      await Plotly.relayout(div, {
+        width,
+        height,
+        margin: { l: 70, r: 40, t: 60 + extraTop, b: 60 },
+      } as Partial<Plotly.Layout>)
+
       const dataUrl = await Plotly.toImage(div as HTMLElement, {
         format,
         width,
         height,
         scale: format === 'png' ? scale : undefined,
       })
+
+      // 還原為自動尺寸
+      await Plotly.relayout(div, {
+        width: undefined,
+        height: undefined,
+        margin: { l: 70, r: 40, t: 60 + extraTop, b: 60 },
+      } as Partial<Plotly.Layout>)
+
       downloadDataUrl(dataUrl, `${finalName}.${format}`)
       toast(`已匯出 ${finalName}.${format}`, 'success')
     } catch (err) {
