@@ -10,6 +10,7 @@ import { ThemePresets } from '@/components/chart/ThemePresets'
 import { ExportPanel } from '@/components/chart/ExportPanel'
 import { ProjectPanel } from '@/components/chart/ProjectPanel'
 import type { AxisConfig, ChartConfig } from '@/types/chart'
+import { useChartStore } from '@/stores/useChartStore'
 
 interface StylePanelProps {
   config: ChartConfig
@@ -107,6 +108,9 @@ function AxisFields({ axis, value, onChange }: AxisFieldsProps) {
 }
 
 export function StylePanel({ config, onChange }: StylePanelProps) {
+  const styleConfig = useChartStore((s) => s.styleConfig)
+  const setStyleConfig = useChartStore((s) => s.setStyleConfig)
+
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-neutral-200 bg-white">
       <div className="flex h-11 items-center border-b border-neutral-200 px-4">
@@ -133,6 +137,50 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
               value={config.yAxis}
               onChange={(yAxis) => onChange({ ...config, yAxis })}
             />
+
+            {/* 字級設定 */}
+            <div className="space-y-2.5 border-t border-neutral-100 pt-3">
+              <legend className="mb-1 text-xs font-medium text-neutral-500">
+                字級設定
+              </legend>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="style-title-fontsize">標題字級 (px)</Label>
+                  <Input
+                    id="style-title-fontsize"
+                    type="number"
+                    min={8}
+                    max={48}
+                    value={styleConfig.fontSize}
+                    onChange={(e) => {
+                      const v = Number(e.target.value)
+                      if (Number.isFinite(v) && v >= 8) {
+                        setStyleConfig({ ...styleConfig, fontSize: v })
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="style-axis-fontsize">軸線字級 (px)</Label>
+                  <Input
+                    id="style-axis-fontsize"
+                    type="number"
+                    min={8}
+                    max={36}
+                    value={styleConfig.tickFontSize}
+                    onChange={(e) => {
+                      const v = Number(e.target.value)
+                      if (Number.isFinite(v) && v >= 8) {
+                        setStyleConfig({ ...styleConfig, tickFontSize: v })
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-neutral-400">
+                調整即時反映在預覽圖表與匯出圖片中
+              </p>
+            </div>
           </AccordionItem>
 
           <AccordionItem title="刻度範圍">
