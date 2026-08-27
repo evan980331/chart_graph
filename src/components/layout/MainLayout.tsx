@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
+import Plotly from 'plotly.js-dist-min'
 import { Header } from '@/components/layout/Header'
 import { DataPanel } from '@/components/data/DataPanel'
 import { StylePanel } from '@/components/chart/StylePanel'
@@ -8,6 +9,8 @@ import { FeedbackModal } from '@/components/feedback/FeedbackModal'
 import { FeaturesModal } from '@/components/features/FeaturesModal'
 import { ChangelogModal } from '@/components/changelog/ChangelogModal'
 import { useChartStore } from '@/stores/useChartStore'
+import { parseCSV, parseExcel, parseTxt } from '@/utils/fileParser'
+import { toast } from '@/utils/toast'
 import { cn } from '@/utils/cn'
 
 const ScientificChart = lazy(() =>
@@ -26,17 +29,94 @@ function ChartSkeleton({ height = 480 }: { height?: number }) {
 
 type MobileTab = 'data' | 'chart' | 'style'
 
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function defaultExportName(): string {
+  const d = new Date()
+  return `實驗_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.png`
+}
+
 export function MainLayout() {
   const setConfig = useChartStore((s) => s.setConfig)
+  const importRows = useChartStore((s) => s.importRows)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [featuresOpen, setFeaturesOpen] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
   const [mobileTab, setMobileTab] = useState<MobileTab>('chart')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleExportPng() {
+    const div = document.getElementById('labplot-chart')
+    if (!div) {
+      toast('找不到圖表，請先建立數據', 'error')
+      return
+    }
+    try {
+      const dataUrl = await Plotly.toImage(div, {
+        format: 'png',
+        width: 1920,
+        height: 1080,
+        scale: 2,
+      })
+      downloadDataUrl(dataUrl, defaultExportName())
+      toast('已匯出 PNG 圖表', 'success')
+    } catch {
+      toast('匯出失敗，請稍後再試', 'error')
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    try {
+      let rows
+      if (file.name.endsWith('.csv')) {
+        rows = await parseCSV(file)
+      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        rows = await parseExcel(file)
+      } else if (file.name.endsWith('.txt')) {
+        rows = await parseTxt(file)
+      } else {
+        toast('僅支援 .csv、.xlsx 或 .txt 檔案', 'error')
+        return
+      }
+      if (rows.length === 0) {
+        toast('未解析到任何有效數據', 'error')
+        return
+      }
+      importRows(rows)
+      toast(`已匯入 ${file.name}（${rows.length} 筆）`, 'success')
+    } catch (e) {
+      toast(`解析失敗：${(e as Error).message}`, 'error')
+    }
+  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-100 text-neutral-900">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.xlsx,.xls,.txt"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) void handleImportFile(file)
+          e.target.value = ''
+        }}
+      />
       <Header
+        onImport={() => fileInputRef.current?.click()}
+        onExport={handleExportPng}
         onTemplate={() => setTemplateOpen(true)}
         onFeedback={() => setFeedbackOpen(true)}
         onFeatures={() => setFeaturesOpen(true)}
