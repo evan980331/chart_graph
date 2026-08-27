@@ -112,7 +112,7 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
   const setStyleConfig = useChartStore((s) => s.setStyleConfig)
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-neutral-200 bg-white">
+    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-neutral-200 bg-white">
       <div className="flex h-11 items-center border-b border-neutral-200 px-4">
         <h2 className="text-sm font-semibold text-neutral-900">
           圖表屬性設定
