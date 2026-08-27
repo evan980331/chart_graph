@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { temporal } from 'zundo'
 import { extractColumns, type RawRow } from '@/utils/fileParser'
 import { mockChartConfig, mockData } from '@/constants/mockData'
 import type { ChartConfig, ChartType, ColumnMapping } from '@/types/chart'
@@ -102,109 +104,129 @@ const INITIAL_MAPPING: ColumnMapping = {
   yError: 'yError',
 }
 
+/** zundo 只追蹤可回復的狀態欄位，排除 function 與無關欄位 */
+function partializeHistory(state: ChartStore) {
+  return {
+    rawData: state.rawData,
+    columns: state.columns,
+    mapping: state.mapping,
+    chartType: state.chartType,
+    config: state.config,
+    regression: state.regression,
+    errorBar: state.errorBar,
+    styleConfig: state.styleConfig,
+  }
+}
+
 export const useChartStore = create<ChartStore>()(
   persist(
-    (set, get) => ({
-      rawData: INITIAL_ROWS,
-      columns: extractColumns(INITIAL_ROWS),
-      mapping: INITIAL_MAPPING,
-      chartType: 'scatter',
-      config: mockChartConfig,
-      invalidCount: 0,
-      regression: DEFAULT_REGRESSION,
-      errorBar: DEFAULT_ERROR_BAR_CONFIG,
-      styleConfig: DEFAULT_STYLE_CONFIG,
+    temporal(
+      (set, get) => ({
+        rawData: INITIAL_ROWS,
+        columns: extractColumns(INITIAL_ROWS),
+        mapping: INITIAL_MAPPING,
+        chartType: 'scatter',
+        config: mockChartConfig,
+        invalidCount: 0,
+        regression: DEFAULT_REGRESSION,
+        errorBar: DEFAULT_ERROR_BAR_CONFIG,
+        styleConfig: DEFAULT_STYLE_CONFIG,
 
-      importRows: (rows) => {
-        const columns = extractColumns(rows)
-        const mapping = inferMapping(columns)
-        set({ rawData: rows, columns, mapping })
-        get().updateInvalidCount(rows, mapping)
+        importRows: (rows) => {
+          const columns = extractColumns(rows)
+          const mapping = inferMapping(columns)
+          set({ rawData: rows, columns, mapping })
+          get().updateInvalidCount(rows, mapping)
+        },
+
+        updateRawData: (rows) => {
+          const columns = extractColumns(rows)
+          const current = get().mapping
+          const mapping: ColumnMapping = {
+            xAxis: current.xAxis,
+            yAxis: current.yAxis,
+            xError:
+              current.xError && columns.includes(current.xError)
+                ? current.xError
+                : undefined,
+            yError:
+              current.yError && columns.includes(current.yError)
+                ? current.yError
+                : undefined,
+          }
+          set({ rawData: rows, columns, mapping })
+          get().updateInvalidCount(rows, mapping)
+        },
+
+        setMapping: (mapping) => {
+          set({ mapping })
+          get().updateInvalidCount(get().rawData, mapping)
+        },
+
+        setChartType: (chartType) => set({ chartType }),
+        setConfig: (config) => set({ config }),
+        setRegression: (regression) => set({ regression }),
+        setErrorBar: (errorBar) => set({ errorBar }),
+        setStyleConfig: (styleConfig) => set({ styleConfig }),
+
+        addRow: () => {
+          const row: RawRow = {}
+          get().columns.forEach((col) => (row[col] = null))
+          get().updateRawData([...get().rawData, row])
+        },
+
+        removeRow: (index) => {
+          const rows = get().rawData.filter((_, i) => i !== index)
+          get().updateRawData(rows)
+        },
+
+        clearData: () => {
+          set({ rawData: [], columns: [], mapping: EMPTY_MAPPING, invalidCount: 0 })
+        },
+
+        updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => {
+          const count = rows.filter((row) => {
+            const x = toNumber(row[mapping.xAxis])
+            const y = toNumber(row[mapping.yAxis])
+            return x === null || y === null
+          }).length
+          set({ invalidCount: count })
+        },
+
+        resetProject: () => {
+          set({
+            rawData: [],
+            columns: [],
+            mapping: EMPTY_MAPPING,
+            chartType: 'scatter',
+            config: mockChartConfig,
+            invalidCount: 0,
+            regression: DEFAULT_REGRESSION,
+            errorBar: DEFAULT_ERROR_BAR_CONFIG,
+            styleConfig: DEFAULT_STYLE_CONFIG,
+          })
+        },
+
+        loadProject: (partial) => {
+          const columns = extractColumns(partial.rawData)
+          set({
+            rawData: partial.rawData,
+            columns,
+            mapping: partial.mapping,
+            chartType: partial.chartType,
+            config: partial.config,
+            regression: partial.regression,
+            errorBar: partial.errorBar,
+            styleConfig: partial.styleConfig,
+          })
+          get().updateInvalidCount(partial.rawData, partial.mapping)
+        },
+      }),
+      {
+        limit: 50,
+        partialize: partializeHistory,
       },
-
-      updateRawData: (rows) => {
-        const columns = extractColumns(rows)
-        const current = get().mapping
-        const mapping: ColumnMapping = {
-          xAxis: current.xAxis,
-          yAxis: current.yAxis,
-          xError:
-            current.xError && columns.includes(current.xError)
-              ? current.xError
-              : undefined,
-          yError:
-            current.yError && columns.includes(current.yError)
-              ? current.yError
-              : undefined,
-        }
-        set({ rawData: rows, columns, mapping })
-        get().updateInvalidCount(rows, mapping)
-      },
-
-      setMapping: (mapping) => {
-        set({ mapping })
-        get().updateInvalidCount(get().rawData, mapping)
-      },
-
-      setChartType: (chartType) => set({ chartType }),
-      setConfig: (config) => set({ config }),
-      setRegression: (regression) => set({ regression }),
-      setErrorBar: (errorBar) => set({ errorBar }),
-      setStyleConfig: (styleConfig) => set({ styleConfig }),
-
-      addRow: () => {
-        const row: RawRow = {}
-        get().columns.forEach((col) => (row[col] = null))
-        get().updateRawData([...get().rawData, row])
-      },
-
-      removeRow: (index) => {
-        const rows = get().rawData.filter((_, i) => i !== index)
-        get().updateRawData(rows)
-      },
-
-      clearData: () => {
-        set({ rawData: [], columns: [], mapping: EMPTY_MAPPING, invalidCount: 0 })
-      },
-
-      updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => {
-        const count = rows.filter((row) => {
-          const x = toNumber(row[mapping.xAxis])
-          const y = toNumber(row[mapping.yAxis])
-          return x === null || y === null
-        }).length
-        set({ invalidCount: count })
-      },
-
-      resetProject: () => {
-        set({
-          rawData: [],
-          columns: [],
-          mapping: EMPTY_MAPPING,
-          chartType: 'scatter',
-          config: mockChartConfig,
-          invalidCount: 0,
-          regression: DEFAULT_REGRESSION,
-          errorBar: DEFAULT_ERROR_BAR_CONFIG,
-          styleConfig: DEFAULT_STYLE_CONFIG,
-        })
-      },
-
-      loadProject: (partial) => {
-        const columns = extractColumns(partial.rawData)
-        set({
-          rawData: partial.rawData,
-          columns,
-          mapping: partial.mapping,
-          chartType: partial.chartType,
-          config: partial.config,
-          regression: partial.regression,
-          errorBar: partial.errorBar,
-          styleConfig: partial.styleConfig,
-        })
-        get().updateInvalidCount(partial.rawData, partial.mapping)
-      },
-    }),
+    ),
     {
       name: 'labplot-project',
       partialize: (state) => ({
@@ -230,6 +252,27 @@ export const useChartStore = create<ChartStore>()(
     },
   ),
 )
+
+/** 方便元件使用的 undo/redo API */
+export function useUndoRedo() {
+  const temporalStore = useChartStore.temporal
+  const [pastStates, setPast] = useState(temporalStore.getState().pastStates)
+  const [futureStates, setFuture] = useState(temporalStore.getState().futureStates)
+
+  useEffect(() => {
+    return temporalStore.subscribe((s) => {
+      setPast(s.pastStates)
+      setFuture(s.futureStates)
+    })
+  }, [temporalStore])
+
+  return {
+    undo: () => temporalStore.getState().undo(),
+    redo: () => temporalStore.getState().redo(),
+    canUndo: pastStates.length > 0,
+    canRedo: futureStates.length > 0,
+  }
+}
 
 export function selectCleanData(state: ChartStore): CleanPoint[] {
   const { rawData, mapping } = state

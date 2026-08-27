@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#ffffff"/>
+  <rect x="0" y="0" width="1200" height="120" fill="#171717"/>
+  <text x="60" y="70" font-family="system-ui, sans-serif" font-size="36" font-weight="bold" fill="#ffffff">LabPlot 科學圖表生成器</text>
+  <text x="60" y="100" font-family="system-ui, sans-serif" font-size="16" fill="#a3a3a3">Beta v1.0</text>
+
+  <!-- Chart preview area -->
+  <rect x="60" y="160" width="680" height="400" rx="12" fill="#f5f5f5" stroke="#e5e5e5" stroke-width="1"/>
+
+  <!-- Axes -->
+  <line x1="120" y1="520" x2="680" y2="520" stroke="#404040" stroke-width="2"/>
+  <line x1="120" y1="520" x2="120" y2="220" stroke="#404040" stroke-width="2"/>
+
+  <!-- Data points -->
+  <circle cx="180" cy="460" r="5" fill="#171717"/>
+  <circle cx="240" cy="420" r="5" fill="#171717"/>
+  <circle cx="300" cy="380" r="5" fill="#171717"/>
+  <circle cx="360" cy="340" r="5" fill="#171717"/>
+  <circle cx="420" cy="310" r="5" fill="#171717"/>
+  <circle cx="480" cy="280" r="5" fill="#171717"/>
+  <circle cx="540" cy="260" r="5" fill="#171717"/>
+  <circle cx="600" cy="240" r="5" fill="#171717"/>
+
+  <!-- Regression line -->
+  <line x1="160" y1="470" x2="620" y2="250" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,3"/>
+
+  <!-- Axis labels -->
+  <text x="400" y="560" font-family="system-ui, sans-serif" font-size="14" fill="#737373" text-anchor="middle">位移 x (m)</text>
+  <text x="80" y="380" font-family="system-ui, sans-serif" font-size="14" fill="#737373" text-anchor="middle" transform="rotate(-90, 80, 380)">力 F (N)</text>
+
+  <!-- Feature cards -->
+  <rect x="800" y="180" width="340" height="80" rx="8" fill="#ffffff" stroke="#e5e5e5" stroke-width="1"/>
+  <text x="820" y="210" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#171717">符合 108 課綱</text>
+  <text x="820" y="236" font-family="system-ui, sans-serif" font-size="12" fill="#737373">探究實作標準模板</text>
+
+  <rect x="800" y="280" width="340" height="80" rx="8" fill="#ffffff" stroke="#e5e5e5" stroke-width="1"/>
+  <text x="820" y="310" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#171717">免安裝免寫程式</text>
+  <text x="820" y="336" font-family="system-ui, sans-serif" font-size="12" fill="#737373">打開瀏覽器即可使用</text>
+
+  <rect x="800" y="380" width="340" height="80" rx="8" fill="#ffffff" stroke="#e5e5e5" stroke-width="1"/>
+  <text x="820" y="410" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#171717">300 DPI 向量匯出</text>
+  <text x="820" y="436" font-family="system-ui, sans-serif" font-size="12" fill="#737373">SVG / PNG 高畫質輸出</text>
+
+  <text x="600" y="600" font-family="system-ui, sans-serif" font-size="13" fill="#a3a3a3" text-anchor="middle">chart-graph.vercel.app</text>
+</svg>

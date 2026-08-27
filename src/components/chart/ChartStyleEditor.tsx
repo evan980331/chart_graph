@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -226,6 +227,19 @@ function NumberField({
   step?: number
   onChange: (value: number) => void
 }) {
+  const [local, setLocal] = useState(String(value))
+  const [editing, setEditing] = useState(false)
+
+  function commit() {
+    setEditing(false)
+    const raw = Number(local)
+    if (Number.isFinite(raw)) {
+      onChange(clamp(raw, min, max))
+    } else {
+      setLocal(String(value))
+    }
+  }
+
   return (
     <div className="space-y-1">
       <Label htmlFor={id}>{label}</Label>
@@ -235,13 +249,70 @@ function NumberField({
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={(e) => {
-          const raw = Number(e.target.value)
-          onChange(Number.isFinite(raw) ? clamp(raw, min, max) : min)
+        value={editing ? local : value}
+        onFocus={() => {
+          setEditing(true)
+          setLocal(String(value))
+        }}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') {
+            setEditing(false)
+            setLocal(String(value))
+          }
         }}
       />
     </div>
+  )
+}
+
+function AxisRangeField({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: number | undefined
+  placeholder: string
+  onChange: (v: number | undefined) => void
+}) {
+  const [local, setLocal] = useState(value != null ? String(value) : '')
+  const [editing, setEditing] = useState(false)
+
+  function commit() {
+    setEditing(false)
+    if (local === '') {
+      onChange(undefined)
+      return
+    }
+    const raw = Number(local)
+    if (Number.isFinite(raw)) {
+      onChange(raw)
+    } else {
+      setLocal(value != null ? String(value) : '')
+    }
+  }
+
+  return (
+    <Input
+      type="number"
+      value={editing ? local : (value ?? '')}
+      placeholder={placeholder}
+      onFocus={() => {
+        setEditing(true)
+        setLocal(value != null ? String(value) : '')
+      }}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+        if (e.key === 'Escape') {
+          setEditing(false)
+          setLocal(value != null ? String(value) : '')
+        }
+      }}
+    />
   )
 }
 
@@ -270,41 +341,20 @@ function AxisRange({
         <Label className="text-xs text-neutral-500">{title}</Label>
         <span className="text-[10px] text-neutral-400">留空 = 自動</span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div className="space-y-0.5">
-          <span className="text-[10px] text-neutral-400">最小值</span>
-          <Input
-            type="number"
-            value={min ?? ''}
-            placeholder="自動"
-            onChange={(e) =>
-              onMin(e.target.value === '' ? undefined : Number(e.target.value))
-            }
-          />
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-0.5">
+            <span className="text-[10px] text-neutral-400">最小值</span>
+            <AxisRangeField value={min} placeholder="自動" onChange={onMin} />
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-[10px] text-neutral-400">最大值</span>
+            <AxisRangeField value={max} placeholder="自動" onChange={onMax} />
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-[10px] text-neutral-400">間距</span>
+            <AxisRangeField value={step} placeholder="自動" onChange={onStep} />
+          </div>
         </div>
-        <div className="space-y-0.5">
-          <span className="text-[10px] text-neutral-400">最大值</span>
-          <Input
-            type="number"
-            value={max ?? ''}
-            placeholder="自動"
-            onChange={(e) =>
-              onMax(e.target.value === '' ? undefined : Number(e.target.value))
-            }
-          />
-        </div>
-        <div className="space-y-0.5">
-          <span className="text-[10px] text-neutral-400">間距</span>
-          <Input
-            type="number"
-            value={step ?? ''}
-            placeholder="自動"
-            onChange={(e) =>
-              onStep(e.target.value === '' ? undefined : Number(e.target.value))
-            }
-          />
-        </div>
-      </div>
     </div>
   )
 }
