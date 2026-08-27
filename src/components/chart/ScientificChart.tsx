@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import createPlotlyComponent from 'react-plotly.js/factory'
 import Plotly from 'plotly.js-dist-min'
 import {
-  selectCleanData,
+  toNumber,
   useChartStore,
   type CleanPoint,
 } from '@/stores/useChartStore'
@@ -126,7 +126,26 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
   const chartType = useChartStore((s) => s.chartType)
   const regression = useChartStore((s) => s.regression)
   const errorBar = useChartStore((s) => s.errorBar)
-  const points = useChartStore(selectCleanData)
+  const rawData = useChartStore((s) => s.rawData)
+  const mapping = useChartStore((s) => s.mapping)
+
+  // 衍生資料以 useMemo 快取，避免每次 render 產生新陣列造成無限重繪
+  const points = useMemo<CleanPoint[]>(() => {
+    if (!mapping.xAxis || !mapping.yAxis) return []
+    const result: CleanPoint[] = []
+    for (const row of rawData) {
+      const x = toNumber(row[mapping.xAxis])
+      const y = toNumber(row[mapping.yAxis])
+      if (x === null || y === null) continue
+      const point: CleanPoint = { x, y }
+      const xErr = mapping.xError ? toNumber(row[mapping.xError]) : null
+      const yErr = mapping.yError ? toNumber(row[mapping.yError]) : null
+      if (mapping.xError && xErr !== null) point.xError = xErr
+      if (mapping.yError && yErr !== null) point.yError = yErr
+      result.push(point)
+    }
+    return result
+  }, [rawData, mapping])
 
   const fit = useMemo<RegressionResult | null>(() => {
     if (!regression.enabled || points.length === 0) return null
