@@ -274,7 +274,7 @@ function DataGrid({
         </span>
       </div>
 
-      <div className="max-h-80 overflow-auto rounded-md border border-neutral-200">
+      <div className="max-h-full overflow-auto rounded-md border border-neutral-200">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="bg-neutral-50">

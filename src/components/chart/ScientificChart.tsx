@@ -19,6 +19,7 @@ import {
   type ChartStyleConfig,
 } from '@/types/style'
 import { setChartSnapshot } from '@/utils/chartSnapshot'
+import { cn } from '@/utils/cn'
 
 const Plot = createPlotlyComponent(Plotly)
 
@@ -32,6 +33,7 @@ function DataWarning({ message }: { message: string }) {
 
 interface ScientificChartProps {
   height?: number
+  fill?: boolean
 }
 
 function axisTitle(label: string, unit: string): string {
@@ -134,7 +136,7 @@ function formatR2(r2: number): string {
   return r2.toFixed(4)
 }
 
-export function ScientificChart({ height = 480 }: ScientificChartProps) {
+export function ScientificChart({ height = 480, fill = false }: ScientificChartProps) {
   const config = useChartStore((s) => s.config)
   const chartType = useChartStore((s) => s.chartType)
   const regression = useChartStore((s) => s.regression)
@@ -315,19 +317,21 @@ export function ScientificChart({ height = 480 }: ScientificChartProps) {
   }, [points, mapping, regression])
 
   return (
-    <div className="w-full">
+    <div className={cn('w-full', fill && 'flex h-full flex-col')}>
       {warnings.map((msg, i) => (
         <DataWarning key={i} message={msg} />
       ))}
-      <Plot
-        data={traces}
-        layout={layout}
-        config={plotConfig}
-        useResizeHandler={true}
-        divId="labplot-chart"
-        style={{ width: '100%', height }}
-        className="w-full"
-      />
+      <div className={cn(fill && 'min-h-0 flex-1')}>
+        <Plot
+          data={traces}
+          layout={layout}
+          config={plotConfig}
+          useResizeHandler={true}
+          divId="labplot-chart"
+          style={{ width: '100%', height: fill ? '100%' : height }}
+          className="w-full"
+        />
+      </div>
     </div>
   )
 }
