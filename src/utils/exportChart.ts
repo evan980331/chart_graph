@@ -9,44 +9,74 @@ export interface ExportOptions {
   scale?: number
 }
 
-/**
- * 匯出圖表到 data URL，不影響預覽圖表。
- * 用臨時 div 重建完整 Plotly 圖表後截圖。
- */
+/** 深拷貝 trace 的可序列化屬性，排除 Plotly 內部物件 */
+function cloneTrace(trace: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(trace)) {
+    const val = trace[key]
+    if (val === null || val === undefined) {
+      out[key] = val
+    } else if (typeof val === 'object' && !Array.isArray(val)) {
+      // 只拷貝 plain object
+      try {
+        out[key] = JSON.parse(JSON.stringify(val))
+      } catch {
+        // 跳過不可序列化的屬性
+      }
+    } else if (Array.isArray(val)) {
+      try {
+        out[key] = JSON.parse(JSON.stringify(val))
+      } catch {
+        // 跳過
+      }
+    } else {
+      out[key] = val
+    }
+  }
+  return out
+}
+
 export async function exportChartAsDataUrl(
   options: ExportOptions,
 ): Promise<string | null> {
   const src = document.getElementById(GRAPH_DIV_ID)
   if (!src) return null
 
-  const gd = src as unknown as {
-    _fullData?: Plotly.Data[]
-    _fullLayout?: Partial<Plotly.Layout>
-  }
+  const gd = src as unknown as Record<string, unknown>
+  const fullData = gd._fullData as Record<string, unknown>[] | undefined
+  const fullLayout = gd._fullLayout as Record<string, unknown> | undefined
 
-  if (!gd._fullData || !gd._fullLayout) return null
+  if (!fullData || !fullLayout) return null
 
-  // 建立臨時隱藏容器
+  // 建立臨時容器
   const tempDiv = document.createElement('div')
-  tempDiv.style.position = 'fixed'
-  tempDiv.style.left = '-9999px'
-  tempDiv.style.top = '-9999px'
-  tempDiv.style.width = `${options.width}px`
-  tempDiv.style.height = `${options.height}px`
+  tempDiv.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden'
   document.body.appendChild(tempDiv)
 
   try {
-    // 用匯出尺寸重建圖表
-    const exportLayout: Partial<Plotly.Layout> = {
-      ...gd._fullLayout,
-      width: options.width,
-      height: options.height,
-      autosize: false,
+    // 深拷貝 traces
+    const traces = fullData.map(cloneTrace)
+
+    // 深拷貝 layout 並覆蓋尺寸
+    let layout: Record<string, unknown>
+    try {
+      layout = JSON.parse(JSON.stringify(fullLayout))
+    } catch {
+      layout = {}
+    }
+    layout.width = options.width
+    layout.height = options.height
+    layout.autosize = false
+    // 確保標題有足夠空間
+    if (layout.title) {
+      layout.margin = { ...(layout.margin as Record<string, unknown> || {}), t: 100 }
     }
 
-    await Plotly.newPlot(tempDiv, gd._fullData ?? [], exportLayout, {
+    await Plotly.newPlot(tempDiv, traces, layout as Partial<Plotly.Layout>, {
       displayModeBar: false,
       staticPlot: false,
+      responsive: false,
     })
 
     const dataUrl = await Plotly.toImage(tempDiv, {
@@ -58,8 +88,11 @@ export async function exportChartAsDataUrl(
 
     return dataUrl
   } finally {
-    // 清理
-    await Plotly.purge(tempDiv)
+    try {
+      Plotly.purge(tempDiv)
+    } catch {
+      // 忽略清理錯誤
+    }
     document.body.removeChild(tempDiv)
   }
 }
