@@ -14,11 +14,11 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
 
   useEffect(() => {
     if (!open) {
-      driverRef.current?.reset()
+      driverRef.current?.destroy()
       return
     }
 
-    driverRef.current?.reset()
+    driverRef.current?.destroy()
 
     const drv = createDriver({
       animate: true,
@@ -30,12 +30,12 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
       closeBtnText: '跳過',
       nextBtnText: '下一步',
       prevBtnText: '上一步',
-      onReset: () => {
+      onDestroy: () => {
         onOpenChange(false)
       },
     })
 
-    drv.defineSteps([
+    drv.setSteps([
       {
         element: '[data-tour="import"]',
         popover: {
@@ -74,7 +74,7 @@ export function GuidedTour({ open, onOpenChange }: GuidedTourProps) {
       },
     ])
 
-    drv.start()
+    drv.drive()
     driverRef.current = drv
   }, [open, onOpenChange])
 

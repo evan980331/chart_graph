@@ -18,7 +18,7 @@ declare module 'driver.js' {
     onHighlightStarted?: (element: Element, step: DriveStep, options: DriverOptions) => void
     onHighlighted?: (element: Element, step: DriveStep, options: DriverOptions) => void
     onDeselected?: (element: Element, step: DriveStep, options: DriverOptions) => void
-    onReset?: (element: Element, options: DriverOptions) => void
+    onDestroy?: (element?: Element, step?: DriveStep, options?: DriverOptions) => void
     onNext?: (element: Element, step: DriveStep, options: DriverOptions) => void
     onPrevious?: (element: Element, step: DriveStep, options: DriverOptions) => void
   }
@@ -45,14 +45,13 @@ declare module 'driver.js' {
 
   export interface DriverInstance {
     highlight(step: DriveStep): DriverInstance
-    defineSteps(steps: DriveStep[]): DriverInstance
-    start(stepIndex?: number): DriverInstance
-    moveNext(): DriverInstance
-    movePrevious(): DriverInstance
+    setSteps(steps: DriveStep[]): DriverInstance
+    drive(stepIndex?: number): void
+    destroy(): void
+    moveNext(): void
+    movePrevious(): void
     hasNextStep(): boolean
     hasPreviousStep(): boolean
-    preventMove(): DriverInstance
-    reset(): DriverInstance
   }
 
   export function driver(options?: DriverOptions): DriverInstance
