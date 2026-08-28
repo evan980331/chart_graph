@@ -1,6 +1,6 @@
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/NumberInput'
 import { Switch } from '@/components/ui/switch'
 import { useChartStore } from '@/stores/useChartStore'
 import { REGRESSION_TYPE_LABELS } from '@/utils/mathStats'
@@ -99,14 +99,13 @@ export function RegressionPanel() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="reg-width">粗細</Label>
-            <Input
+            <NumberInput
               id="reg-width"
-              type="number"
               min={0.5}
               max={5}
               step={0.5}
               value={regression.lineWidth}
-              onChange={(e) => update({ lineWidth: Number(e.target.value) })}
+              onChange={(v) => v !== undefined && update({ lineWidth: v })}
             />
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { Accordion, AccordionItem } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/NumberInput'
 import { Label } from '@/components/ui/label'
 import { SymbolPicker } from '@/components/chart/SymbolPicker'
 import { ChartTypeSelector } from '@/components/chart/ChartTypeSelector'
@@ -56,53 +57,38 @@ function AxisFields({ axis, value, onChange }: AxisFieldsProps) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div className="space-y-1">
-          <Label htmlFor={`${axis}-min`}>最小值</Label>
-          <Input
-            id={`${axis}-min`}
-            type="number"
-            value={value.min ?? ''}
-            placeholder="自動"
-            onChange={(e) =>
-              onChange({
-                ...value,
-                min: e.target.value === '' ? undefined : Number(e.target.value),
-              })
-            }
-          />
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`${axis}-min`}>最小值</Label>
+            <NumberInput
+              id={`${axis}-min`}
+              allowUndefined
+              value={value.min}
+              placeholder="自動"
+              onChange={(v) => onChange({ ...value, min: v })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`${axis}-max`}>最大值</Label>
+            <NumberInput
+              id={`${axis}-max`}
+              allowUndefined
+              value={value.max}
+              placeholder="自動"
+              onChange={(v) => onChange({ ...value, max: v })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`${axis}-step`}>間距</Label>
+            <NumberInput
+              id={`${axis}-step`}
+              allowUndefined
+              value={value.step}
+              placeholder="自動"
+              onChange={(v) => onChange({ ...value, step: v })}
+            />
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${axis}-max`}>最大值</Label>
-          <Input
-            id={`${axis}-max`}
-            type="number"
-            value={value.max ?? ''}
-            placeholder="自動"
-            onChange={(e) =>
-              onChange({
-                ...value,
-                max: e.target.value === '' ? undefined : Number(e.target.value),
-              })
-            }
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${axis}-step`}>間距</Label>
-          <Input
-            id={`${axis}-step`}
-            type="number"
-            value={value.step ?? ''}
-            placeholder="自動"
-            onChange={(e) =>
-              onChange({
-                ...value,
-                step: e.target.value === '' ? undefined : Number(e.target.value),
-              })
-            }
-          />
-        </div>
-      </div>
     </fieldset>
   )
 }
@@ -146,33 +132,25 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label htmlFor="style-title-fontsize">標題字級 (px)</Label>
-                  <Input
+                  <NumberInput
                     id="style-title-fontsize"
-                    type="number"
                     min={8}
                     max={48}
                     value={styleConfig.fontSize}
-                    onChange={(e) => {
-                      const v = Number(e.target.value)
-                      if (Number.isFinite(v) && v >= 8) {
-                        setStyleConfig({ ...styleConfig, fontSize: v })
-                      }
+                    onChange={(v) => {
+                      if (v !== undefined) setStyleConfig({ ...styleConfig, fontSize: v })
                     }}
                   />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="style-axis-fontsize">軸線字級 (px)</Label>
-                  <Input
+                  <NumberInput
                     id="style-axis-fontsize"
-                    type="number"
                     min={8}
                     max={36}
                     value={styleConfig.tickFontSize}
-                    onChange={(e) => {
-                      const v = Number(e.target.value)
-                      if (Number.isFinite(v) && v >= 8) {
-                        setStyleConfig({ ...styleConfig, tickFontSize: v })
-                      }
+                    onChange={(v) => {
+                      if (v !== undefined) setStyleConfig({ ...styleConfig, tickFontSize: v })
                     }}
                   />
                 </div>

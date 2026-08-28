@@ -1,6 +1,6 @@
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/NumberInput'
 import { useChartStore } from '@/stores/useChartStore'
 import type {
   AxisErrorBarSettings,
@@ -86,12 +86,11 @@ function AxisErrorBar({ title, settings, showValue, onChange }: AxisErrorBarProp
           <Label htmlFor={`${title}-value`}>
             {settings.source === 'percent' ? '百分比 (%)' : '固定數值'}
           </Label>
-          <Input
+          <NumberInput
             id={`${title}-value`}
-            type="number"
-            step="any"
+            step={0.1}
             value={settings.value}
-            onChange={(e) => onChange({ value: Number(e.target.value) })}
+            onChange={(v) => onChange({ value: v ?? 0 })}
           />
         </div>
       )}
@@ -128,25 +127,23 @@ function AxisErrorBar({ title, settings, showValue, onChange }: AxisErrorBarProp
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${title}-cap`}>端點寬度 (Cap)</Label>
-          <Input
+          <NumberInput
             id={`${title}-cap`}
-            type="number"
             min={0}
             max={20}
             value={settings.capSize}
-            onChange={(e) => onChange({ capSize: Number(e.target.value) })}
+            onChange={(v) => onChange({ capSize: v ?? settings.capSize })}
           />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${title}-thick`}>線條粗細</Label>
-          <Input
+          <NumberInput
             id={`${title}-thick`}
-            type="number"
             min={0.5}
             max={5}
             step={0.5}
             value={settings.thickness}
-            onChange={(e) => onChange({ thickness: Number(e.target.value) })}
+            onChange={(v) => onChange({ thickness: v ?? settings.thickness })}
           />
         </div>
       </div>

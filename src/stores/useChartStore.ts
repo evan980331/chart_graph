@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { temporal } from 'zundo'
@@ -119,6 +119,7 @@ function partializeHistory(state: ChartStore) {
     regression: state.regression,
     errorBar: state.errorBar,
     styleConfig: state.styleConfig,
+    previewSize: state.previewSize,
   }
 }
 
@@ -257,6 +258,39 @@ export const useChartStore = create<ChartStore>()(
       {
         limit: 50,
         partialize: partializeHistory,
+        // 拖曳改變預覽尺寸會連續觸發大量 set，這裡把一連串預覽尺寸變動收斂成單一歷史步驟；
+        // 其餘編輯（標題、字級、數據等）則立即記錄，確保撤銷即時可用。
+        handleSet: (handleSet) => {
+          const record = handleSet as unknown as (
+            pastState: ChartStore,
+            replace: boolean | undefined,
+            currentState: Partial<ChartStore>,
+            deltaState?: unknown,
+          ) => void
+          let timeout: ReturnType<typeof setTimeout> | undefined
+          let firstPast: ChartStore | undefined
+          let firstReplace: boolean | undefined
+          return (pastState, replace, currentState, deltaState) => {
+            const isResize =
+              (pastState as ChartStore).previewSize !==
+              (currentState as { previewSize?: unknown }).previewSize
+            if (!isResize) {
+              record(pastState as ChartStore, replace as boolean | undefined, currentState, deltaState)
+              return
+            }
+            if (firstPast === undefined) {
+              firstPast = pastState as ChartStore
+              firstReplace = replace as boolean | undefined
+            }
+            if (timeout) clearTimeout(timeout)
+            timeout = setTimeout(() => {
+              record(firstPast!, firstReplace!, currentState, deltaState)
+              firstPast = undefined
+              firstReplace = undefined
+              timeout = undefined
+            }, 300)
+          }
+        },
       },
     ),
     {
@@ -286,21 +320,22 @@ export const useChartStore = create<ChartStore>()(
 )
 
 /** 方便元件使用的 undo/redo API */
-export function useUndoRedo() {
-  const temporalStore = useChartStore.temporal
-  const [pastStates, setPast] = useState(temporalStore.getState().pastStates)
-  const [futureStates, setFuture] = useState(temporalStore.getState().futureStates)
+const chartTemporal = useChartStore.temporal
+const subscribeTemporal = chartTemporal.subscribe.bind(chartTemporal)
 
-  useEffect(() => {
-    return temporalStore.subscribe((s) => {
-      setPast(s.pastStates)
-      setFuture(s.futureStates)
-    })
-  }, [temporalStore])
+export function useUndoRedo() {
+  const pastStates = useSyncExternalStore(
+    subscribeTemporal,
+    () => chartTemporal.getState().pastStates,
+  )
+  const futureStates = useSyncExternalStore(
+    subscribeTemporal,
+    () => chartTemporal.getState().futureStates,
+  )
 
   return {
-    undo: () => temporalStore.getState().undo(),
-    redo: () => temporalStore.getState().redo(),
+    undo: () => chartTemporal.getState().undo(),
+    redo: () => chartTemporal.getState().redo(),
     canUndo: pastStates.length > 0,
     canRedo: futureStates.length > 0,
   }
