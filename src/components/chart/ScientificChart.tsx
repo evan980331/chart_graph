@@ -32,7 +32,9 @@ function DataWarning({ message }: { message: string }) {
 
 interface ScientificChartProps {
   height?: number
+  width?: number
   fill?: boolean
+  divId?: string
 }
 
 function axisTitle(label: string, unit: string): string {
@@ -135,7 +137,12 @@ function formatR2(r2: number): string {
   return r2.toFixed(4)
 }
 
-export function ScientificChart({ height = 480, fill = false }: ScientificChartProps) {
+export function ScientificChart({
+  height = 480,
+  width,
+  fill = false,
+  divId = 'labplot-chart',
+}: ScientificChartProps) {
   const config = useChartStore((s) => s.config)
   const chartType = useChartStore((s) => s.chartType)
   const regression = useChartStore((s) => s.regression)
@@ -236,7 +243,9 @@ export function ScientificChart({ height = 480, fill = false }: ScientificChartP
       paper_bgcolor: '#FFFFFF',
       plot_bgcolor: '#FFFFFF',
       font: { family, color: styleConfig.axisColor, size: styleConfig.tickFontSize },
-      autosize: true,
+      autosize: fill || width === undefined,
+      ...(width !== undefined ? { width } : {}),
+      ...(fill ? {} : { height }),
       margin: { l: 70, r: 40, t: 80, b: 60 },
       xaxis: buildAxis(
         xAxis,
@@ -272,7 +281,7 @@ export function ScientificChart({ height = 480, fill = false }: ScientificChartP
           ]
         : [],
     }
-  }, [config, fit, styleConfig])
+  }, [config, fit, styleConfig, width, height, fill])
 
   const plotConfig = useMemo(
     () => ({
@@ -321,8 +330,11 @@ export function ScientificChart({ height = 480, fill = false }: ScientificChartP
           layout={layout}
           config={plotConfig}
           useResizeHandler={true}
-          divId="labplot-chart"
-          style={{ width: '100%', height: fill ? '100%' : height }}
+          divId={divId}
+          style={{
+            width: fill || width === undefined ? '100%' : width,
+            height: fill ? '100%' : height,
+          }}
           className="w-full"
         />
       </div>

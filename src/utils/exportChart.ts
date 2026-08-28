@@ -1,11 +1,11 @@
 import Plotly from 'plotly.js-dist-min'
 
-const GRAPH_DIV_ID = 'labplot-chart'
+const GRAPH_DIV_IDS = ['labplot-chart', 'labplot-chart-mobile']
 
 export interface ExportOptions {
   format: 'png' | 'svg'
-  width: number
-  height: number
+  width?: number
+  height?: number
   scale?: number
 }
 
@@ -21,16 +21,30 @@ function deepClone<T>(value: T): T {
   }
 }
 
+/** 選取目前可見的圖表節點（桌面或手機版，避免使用隱藏的那個） */
+function getVisibleChart(): HTMLElement | null {
+  for (const id of GRAPH_DIV_IDS) {
+    const el = document.getElementById(id)
+    if (el && el.offsetParent !== null) return el
+  }
+  for (const id of GRAPH_DIV_IDS) {
+    const el = document.getElementById(id)
+    if (el) return el
+  }
+  return null
+}
+
 export async function exportChartAsDataUrl(
   options: ExportOptions,
 ): Promise<string | null> {
-  const src = document.getElementById(GRAPH_DIV_ID)
+  const src = getVisibleChart()
   if (!src) return null
 
   // 讀取即時圖表的 data / layout（一定反映當下標題、軸名稱、字級）
   const gd = src as unknown as {
     data?: Plotly.Data[]
     layout?: Partial<Plotly.Layout>
+    _fullLayout?: { width?: number; height?: number }
   }
   const liveData = gd.data
   const liveLayout = gd.layout
@@ -39,15 +53,20 @@ export async function exportChartAsDataUrl(
   const data = deepClone(liveData)
   const layout = deepClone(liveLayout)
 
+  // 匯出尺寸 = 預覽圖表實際渲染尺寸，確保與預覽一致
+  const fl = gd._fullLayout as { width?: number; height?: number } | undefined
+  const width = Math.round(fl?.width ?? options.width ?? 800)
+  const height = Math.round(fl?.height ?? options.height ?? 600)
+
   // 建立臨時容器（off-screen，給足尺寸避免裁切）
   const tempDiv = document.createElement('div')
-  tempDiv.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${options.width}px;height:${options.height}px`
+  tempDiv.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${width}px;height:${height}px`
   document.body.appendChild(tempDiv)
 
   try {
     const exportLayout = layout as Record<string, unknown>
-    exportLayout.width = options.width
-    exportLayout.height = options.height
+    exportLayout.width = width
+    exportLayout.height = height
     exportLayout.autosize = false
 
     // 確保標題有足夠空間
@@ -83,8 +102,8 @@ export async function exportChartAsDataUrl(
 
     const dataUrl = await Plotly.toImage(tempDiv, {
       format: options.format,
-      width: options.width,
-      height: options.height,
+      width,
+      height,
       scale: options.format === 'png' ? (options.scale ?? 2) : undefined,
     })
 

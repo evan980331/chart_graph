@@ -43,7 +43,9 @@ interface ChartStore {
   regression: RegressionSettings
   errorBar: ErrorBarConfig
   styleConfig: ChartStyleConfig
+  previewSize: { width: number; height: number } | null
 
+  setPreviewSize: (size: { width: number; height: number } | null) => void
   importRows: (rows: RawRow[]) => void
   updateRawData: (rows: RawRow[]) => void
   setMapping: (mapping: ColumnMapping) => void
@@ -133,6 +135,7 @@ export const useChartStore = create<ChartStore>()(
         regression: DEFAULT_REGRESSION,
         errorBar: DEFAULT_ERROR_BAR_CONFIG,
         styleConfig: DEFAULT_STYLE_CONFIG,
+        previewSize: null,
 
         importRows: (rows) => {
           const columns = extractColumns(rows)
@@ -210,6 +213,8 @@ export const useChartStore = create<ChartStore>()(
           set({ rawData: [], columns: [], mapping: EMPTY_MAPPING, invalidCount: 0 })
         },
 
+        setPreviewSize: (size) => set({ previewSize: size }),
+
         updateInvalidCount: (rows: RawRow[], mapping: ColumnMapping) => {
           const count = rows.filter((row) => {
             const x = toNumber(row[mapping.xAxis])
@@ -230,6 +235,7 @@ export const useChartStore = create<ChartStore>()(
             regression: DEFAULT_REGRESSION,
             errorBar: DEFAULT_ERROR_BAR_CONFIG,
             styleConfig: DEFAULT_STYLE_CONFIG,
+            previewSize: null,
           })
         },
 

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/utils/toast'
+import { useChartStore } from '@/stores/useChartStore'
 import {
   exportChartAsDataUrl,
   downloadDataUrl,
@@ -23,11 +24,10 @@ export function defaultFileName(ext: string): string {
 
 export function ExportPanel() {
   const [format, setFormat] = useState<Format>('png')
-  const [width, setWidth] = useState(1200)
-  const [height, setHeight] = useState(800)
   const [scale, setScale] = useState(3)
   const [filename, setFilename] = useState(defaultFileName('png'))
   const [loading, setLoading] = useState(false)
+  const previewSize = useChartStore((s) => s.previewSize)
 
   function handleFormatChange(f: Format) {
     setFormat(f)
@@ -42,8 +42,6 @@ export function ExportPanel() {
     try {
       const dataUrl = await exportChartAsDataUrl({
         format,
-        width,
-        height,
         scale,
       })
       if (!dataUrl) {
@@ -62,7 +60,7 @@ export function ExportPanel() {
     } finally {
       setLoading(false)
     }
-  }, [format, width, height, scale, filename])
+  }, [format, scale, filename])
 
   return (
     <div className="space-y-3">
@@ -88,9 +86,14 @@ export function ExportPanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField id="export-width" label="寬度 (px)" value={width} min={64} onChange={setWidth} />
-        <NumberField id="export-height" label="高度 (px)" value={height} min={64} onChange={setHeight} />
+      <div className="rounded-md bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+        匯出尺寸 = 預覽圖表尺寸
+        {previewSize
+          ? `（${previewSize.width} × ${previewSize.height}px）`
+          : '（自適應）'}
+        {format === 'png' && previewSize
+          ? `，以 ${scale}× 輸出 = ${previewSize.width * scale} × ${previewSize.height * scale}px`
+          : ''}
       </div>
 
       {format === 'png' && (
@@ -112,9 +115,6 @@ export function ExportPanel() {
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-neutral-400">
-            {width}×{height} 以 {scale}× 匯出 = {width * scale}×{height * scale}
-          </p>
         </div>
       )}
 
@@ -136,36 +136,6 @@ export function ExportPanel() {
           </>
         )}
       </Button>
-    </div>
-  )
-}
-
-function NumberField({
-  id,
-  label,
-  value,
-  min,
-  onChange,
-}: {
-  id: string
-  label: string
-  value: number
-  min: number
-  onChange: (value: number) => void
-}) {
-  return (
-    <div className="space-y-1">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        type="number"
-        min={min}
-        value={value}
-        onChange={(e) => {
-          const raw = Number(e.target.value)
-          onChange(Number.isFinite(raw) && raw >= min ? raw : min)
-        }}
-      />
     </div>
   )
 }

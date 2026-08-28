@@ -2,6 +2,7 @@ import { lazy, Suspense, useRef, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { DataPanel } from '@/components/data/DataPanel'
 import { DataTablePanel } from '@/components/data/DataTablePanel'
+import { ChartResizeHandle } from '@/components/ui/ChartResizeHandle'
 import { StylePanel } from '@/components/chart/StylePanel'
 import { ToastHost } from '@/components/ui/ToastHost'
 import { TemplateModal } from '@/components/template/TemplateModal'
@@ -71,6 +72,8 @@ function CenterTabButton({
 export function MainLayout() {
   const setConfig = useChartStore((s) => s.setConfig)
   const importRows = useChartStore((s) => s.importRows)
+  const previewSize = useChartStore((s) => s.previewSize)
+  const setPreviewSize = useChartStore((s) => s.setPreviewSize)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [featuresOpen, setFeaturesOpen] = useState(false)
@@ -158,17 +161,47 @@ export function MainLayout() {
             <CenterTabButton active={centerTab === 'data'} onClick={() => setCenterTab('data')}>
               數據表格
             </CenterTabButton>
+            {previewSize && (
+              <button
+                type="button"
+                onClick={() => setPreviewSize(null)}
+                className="ml-auto rounded-md px-2 py-1.5 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
+              >
+                自適應
+              </button>
+            )}
           </div>
 
           {centerTab === 'chart' ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6">
-              <div className="flex min-h-0 w-full flex-1 items-stretch justify-center">
-                <Suspense fallback={<ChartSkeleton />}>
-                  <ScientificChart fill />
-                </Suspense>
-              </div>
-              <p className="text-xs text-neutral-400">
-                匯入數據後可切換散佈 / 折線 / 柱狀圖，調整視窗大小時圖表會自動響應。
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-6">
+              {previewSize ? (
+                <div
+                  className="relative shadow-sm ring-1 ring-neutral-200"
+                  style={{ width: previewSize.width, height: previewSize.height }}
+                >
+                  <Suspense fallback={<ChartSkeleton height={previewSize.height} />}>
+                    <ScientificChart
+                      width={previewSize.width}
+                      height={previewSize.height}
+                    />
+                  </Suspense>
+                  <ChartResizeHandle
+                    width={previewSize.width}
+                    height={previewSize.height}
+                    onResize={(w, h) => setPreviewSize({ width: w, height: h })}
+                  />
+                </div>
+              ) : (
+                <div className="flex min-h-0 w-full flex-1 items-stretch justify-center">
+                  <Suspense fallback={<ChartSkeleton />}>
+                    <ScientificChart fill />
+                  </Suspense>
+                </div>
+              )}
+              <p className="text-center text-xs text-neutral-400">
+                {previewSize
+                  ? `預覽尺寸 ${previewSize.width} × ${previewSize.height}px，拖曳右下角可調整；匯出即以此尺寸輸出。`
+                  : '拖曳圖表右下角可調整預覽大小，匯出尺寸會與預覽一致。'}
               </p>
             </div>
           ) : (
@@ -207,7 +240,7 @@ export function MainLayout() {
           {mobileTab === 'chart' && (
             <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-4">
               <Suspense fallback={<ChartSkeleton height={360} />}>
-                <ScientificChart height={360} />
+                <ScientificChart height={360} divId="labplot-chart-mobile" />
               </Suspense>
               <p className="text-xs text-neutral-400">
                 匯入數據後可切換散佈 / 折線 / 柱狀圖。
