@@ -1,9 +1,11 @@
 import { useRef } from 'react'
 
 interface ChartResizeHandleProps {
-  width: number
-  height: number
+  width?: number
+  height?: number
   onResize: (width: number, height: number) => void
+  /** 首次拖曳時若尚未有固定尺寸，用此取得目前圖表實際渲染尺寸 */
+  getInitialSize?: () => { width: number; height: number }
   minW?: number
   minH?: number
   maxW?: number
@@ -14,6 +16,7 @@ export function ChartResizeHandle({
   width,
   height,
   onResize,
+  getInitialSize,
   minW = 320,
   minH = 240,
   maxW = 2400,
@@ -24,7 +27,8 @@ export function ChartResizeHandle({
   function onPointerDown(e: React.PointerEvent) {
     e.preventDefault()
     e.stopPropagation()
-    start.current = { x: e.clientX, y: e.clientY, w: width, h: height }
+    const initial = getInitialSize ? getInitialSize() : { width: width ?? 0, height: height ?? 0 }
+    start.current = { x: e.clientX, y: e.clientY, w: initial.width, h: initial.height }
 
     const move = (ev: PointerEvent) => {
       const s = start.current

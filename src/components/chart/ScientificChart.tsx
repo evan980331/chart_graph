@@ -246,7 +246,7 @@ export function ScientificChart({
       autosize: fill || width === undefined,
       ...(width !== undefined ? { width } : {}),
       ...(fill ? {} : { height }),
-      margin: { l: 70, r: 40, t: 80, b: 60 },
+      margin: { l: 90, r: 70, t: 90, b: 80 },
       xaxis: buildAxis(
         xAxis,
         styleConfig,

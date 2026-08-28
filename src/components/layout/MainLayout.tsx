@@ -192,10 +192,23 @@ export function MainLayout() {
                   />
                 </div>
               ) : (
-                <div className="flex min-h-0 w-full flex-1 items-stretch justify-center">
+                <div className="relative flex min-h-0 w-full flex-1 items-stretch justify-center">
                   <Suspense fallback={<ChartSkeleton />}>
                     <ScientificChart fill />
                   </Suspense>
+                  <ChartResizeHandle
+                    getInitialSize={() => {
+                      const el = document.getElementById('labplot-chart') as
+                        | (HTMLElement & { _fullLayout?: { width?: number; height?: number } })
+                        | null
+                      const fl = el?._fullLayout
+                      return {
+                        width: Math.round(fl?.width ?? 720),
+                        height: Math.round(fl?.height ?? 480),
+                      }
+                    }}
+                    onResize={(w, h) => setPreviewSize({ width: w, height: h })}
+                  />
                 </div>
               )}
               <p className="text-center text-xs text-neutral-400">
