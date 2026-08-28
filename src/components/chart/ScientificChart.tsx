@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import createPlotlyComponent from 'react-plotly.js/factory'
 import Plotly from 'plotly.js-dist-min'
 import {
@@ -18,7 +18,6 @@ import {
   resolveFontFamily,
   type ChartStyleConfig,
 } from '@/types/style'
-import { setChartSnapshot } from '@/utils/chartSnapshot'
 import { cn } from '@/utils/cn'
 
 const Plot = createPlotlyComponent(Plotly)
@@ -274,11 +273,6 @@ export function ScientificChart({ height = 480, fill = false }: ScientificChartP
         : [],
     }
   }, [config, fit, styleConfig])
-
-  // 儲存純數據快照供匯出使用（避免解析 Plotly 內部狀態）
-  useEffect(() => {
-    setChartSnapshot(traces, layout)
-  }, [traces, layout])
 
   const plotConfig = useMemo(
     () => ({
