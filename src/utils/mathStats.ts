@@ -113,6 +113,39 @@ function solveQuadraticSystem(rows: number[][]): number[] | null {
   return x
 }
 
+// ---------- internal raw linear fit (no rounding) ----------
+function linearFitRaw(
+  points: FitPoint[],
+  forceZeroIntercept = false,
+): { slope: number; intercept: number } | { degenerate: true; reason: string } {
+  if (points.length < 2) return { degenerate: true, reason: 'insufficient' }
+  if (forceZeroIntercept) {
+    let sumXY = 0
+    let sumX2 = 0
+    for (const p of points) {
+      sumXY += p.x * p.y
+      sumX2 += p.x * p.x
+    }
+    if (sumX2 === 0) return { degenerate: true, reason: 'X values are identical or all zero, cannot fit with zero intercept' }
+    const slope = sumXY / sumX2
+    if (!Number.isFinite(slope)) return { degenerate: true, reason: '計算結果非有限值' }
+    return { slope, intercept: 0 }
+  }
+  const sx = mean(points.map((p) => p.x))
+  const sy = mean(points.map((p) => p.y))
+  let num = 0
+  let den = 0
+  for (const p of points) {
+    num += (p.x - sx) * (p.y - sy)
+    den += (p.x - sx) * (p.x - sx)
+  }
+  if (den === 0) return { degenerate: true, reason: 'X values are identical' }
+  const slope = num / den
+  const intercept = sy - slope * sx
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) return { degenerate: true, reason: '計算結果非有限值' }
+  return { slope, intercept }
+}
+
 // ---------- regression models ----------
 
 export function linearRegression(
@@ -127,41 +160,11 @@ export function linearRegression(
     return createDegenerate('linear', totalCount, usedCount, 'insufficient-data', '資料不足：線性擬合至少需要 2 筆有效資料')
   }
 
-  const sx = mean(finite.map((p) => p.x))
-  const sy = mean(finite.map((p) => p.y))
-
-  let slope: number
-  let intercept: number
-
-  if (options.forceZeroIntercept) {
-    let sumXY = 0
-    let sumX2 = 0
-    for (const p of finite) {
-      sumXY += p.x * p.y
-      sumX2 += p.x * p.x
-    }
-    if (sumX2 === 0) {
-      return createDegenerate('linear', totalCount, usedCount, 'degenerate', 'X values are identical or all zero, cannot fit with zero intercept')
-    }
-    slope = sumXY / sumX2
-    intercept = 0
-  } else {
-    let num = 0
-    let den = 0
-    for (const p of finite) {
-      num += (p.x - sx) * (p.y - sy)
-      den += (p.x - sx) * (p.x - sx)
-    }
-    if (den === 0) {
-      return createDegenerate('linear', totalCount, usedCount, 'degenerate', 'X values are identical')
-    }
-    slope = num / den
-    intercept = sy - slope * sx
+  const raw = linearFitRaw(finite, !!options.forceZeroIntercept)
+  if ('degenerate' in raw) {
+    return createDegenerate('linear', totalCount, usedCount, 'degenerate', raw.reason)
   }
-
-  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) {
-    return createDegenerate('linear', totalCount, usedCount, 'degenerate', '計算結果非有限值')
-  }
+  const { slope, intercept } = raw
 
   const coefs = { a: toPrecision(slope), b: toPrecision(intercept) }
   const predict = (x: number) => {
@@ -201,7 +204,7 @@ export function polynomialRegression(
   let c: number
 
   if (options.forceZeroIntercept) {
-    // y = a*x² + b*x (c = 0) — solve 2×2 system in original space, scale-aware
+    // y = a*x² + b*x (c = 0) — scale-aware 2×2 solver preserving zero-intercept constraint
     let s2 = 0
     let s3 = 0
     let s4 = 0
@@ -217,14 +220,22 @@ export function polynomialRegression(
       s1y += p.x * p.y
       s2y += x2 * p.y
     }
-    const det = s4 * s2 - s3 * s3
-    // scale-aware check: relative to magnitude of s4*s2 and s3^2
-    const scale = Math.max(Math.abs(s4 * s2), Math.abs(s3 * s3))
-    if (scale === 0 || Math.abs(det) <= 1e-12 * scale) {
+    // scale by sigma = sqrt(s2/n) to avoid extreme det magnitudes while keeping c=0
+    const sigma = s2 === 0 ? 1 : Math.sqrt(s2 / usedCount)
+    const s2u = s2 / (sigma * sigma)
+    const s3u = s3 / (sigma * sigma * sigma)
+    const s4u = s4 / (sigma * sigma * sigma * sigma)
+    const s1yu = s1y / sigma
+    const s2yu = s2y / (sigma * sigma)
+    const detU = s4u * s2u - s3u * s3u
+    const scaleU = Math.max(Math.abs(s4u * s2u), Math.abs(s3u * s3u))
+    if (scaleU === 0 || Math.abs(detU) <= 1e-12 * scaleU) {
       return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system')
     }
-    a = (s2 * s2y - s3 * s1y) / det
-    b = (s4 * s1y - s3 * s2y) / det
+    const Au = (s2u * s2yu - s3u * s1yu) / detU // A = a*sigma²
+    const Bu = (s4u * s1yu - s3u * s2yu) / detU // B = b*sigma
+    a = Au / (sigma * sigma)
+    b = Bu / sigma
     c = 0
     if (!Number.isFinite(a) || !Number.isFinite(b)) {
       return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值')
@@ -314,19 +325,15 @@ export function exponentialRegression(
     return createDegenerate('exponential', totalCount, usedCount, usedCount === 0 && finite.length === 0 && totalCount > 0 ? 'insufficient-data' : finite.length < 2 ? 'insufficient-data' : 'insufficient-data', reason)
   }
 
-  // Center x values for numerical stability
+  // Center x values for numerical stability — use raw linear fit, no rounding
   const mu = mean(valid.map((p) => p.x))
   const lnPoints = valid.map((p) => ({ x: p.x - mu, y: Math.log(p.y) }))
-  // lnPoints are finite because valid y>0 and x finite
-  const base = linearRegression(lnPoints)
-  if (base.status !== 'ok' || !Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b)) {
-    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', base.reason ?? '無法建立指數模型')
+  const baseRaw = linearFitRaw(lnPoints, false)
+  if ('degenerate' in baseRaw) {
+    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', baseRaw.reason ?? '無法建立指數模型')
   }
-
-  const b = base.coefs.a // slope in log space (already rounded, but use raw slope for calc)
-  // recompute with raw values to avoid rounding error: use base's internal slope/intercept
-  // base.coefs are rounded; better to use unrounded? We use rounded as before for consistency
-  const lnA = base.coefs.b - b * mu // transform intercept back to original x
+  const b = baseRaw.slope
+  const lnA = baseRaw.intercept - b * mu // transform intercept back to original x
   const a = Math.exp(lnA)
   if (!Number.isFinite(a) || !Number.isFinite(b)) {
     return createDegenerate('exponential', totalCount, usedCount, 'degenerate', '計算結果非有限值')
@@ -365,20 +372,19 @@ export function powerRegression(
     return createDegenerate('power', totalCount, usedCount, 'insufficient-data', `資料不足：冪函數擬合至少需要 2 筆 x>0 且 y>0 的有效資料（已排除 ${excludedCount} 筆）`)
   }
 
-  // Center ln(x) values for numerical stability
+  // Center ln(x) values for numerical stability — use raw linear fit
   const logXs = valid.map((p) => Math.log(p.x))
   const mu = mean(logXs)
   const logPoints = valid.map((p, i) => ({
     x: logXs[i] - mu,
     y: Math.log(p.y),
   }))
-  const base = linearRegression(logPoints)
-  if (base.status !== 'ok' || !Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b)) {
-    return createDegenerate('power', totalCount, usedCount, 'degenerate', base.reason ?? '無法建立冪函數模型')
+  const baseRaw = linearFitRaw(logPoints, false)
+  if ('degenerate' in baseRaw) {
+    return createDegenerate('power', totalCount, usedCount, 'degenerate', baseRaw.reason ?? '無法建立冪函數模型')
   }
-
-  const b = base.coefs.a // exponent
-  const lnA = base.coefs.b - b * mu // transform intercept back
+  const b = baseRaw.slope // exponent
+  const lnA = baseRaw.intercept - b * mu // transform intercept back
   const a = Math.exp(lnA)
   if (!Number.isFinite(a) || !Number.isFinite(b)) {
     return createDegenerate('power', totalCount, usedCount, 'degenerate', '計算結果非有限值')
