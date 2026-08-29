@@ -13,12 +13,16 @@ export interface RegressionResult {
   type: RegressionType
   /** Human readable equation, e.g. "y = 9.81x + 0.02" */
   formula: string
-  /** Coefficient of determination R² (0..1, on the original y scale) */
+  /** Coefficient of determination R² (on the original y scale, not clamped) */
   r2: number
   /** Named coefficients (may vary per model) */
   coefs: Record<string, number>
   /** @returns fitted y for a given x, or null when x is outside the model domain */
   predict: (x: number) => number | null
+  /** Number of points actually used for fitting after model-specific filtering */
+  filteredCount: number
+  /** Total number of points passed to the regression before filtering */
+  totalCount: number
 }
 
 export const REGRESSION_TYPE_LABELS: Record<RegressionType, string> = {
@@ -95,7 +99,7 @@ export function linearRegression(
   options: FitOptions = {},
 ): RegressionResult {
   const n = points.length
-  if (n < 2) return createDegenerate('linear')
+  if (n < 2) return createDegenerate('linear', 0, n)
 
   const sx = mean(points.map((p) => p.x))
   const sy = mean(points.map((p) => p.y))
@@ -136,6 +140,8 @@ export function linearRegression(
     ),
     formula: buildLinearFormula(coefs),
     predict,
+    filteredCount: n,
+    totalCount: n,
   }
 }
 
@@ -144,7 +150,7 @@ export function polynomialRegression(
   options: FitOptions = {},
 ): RegressionResult {
   const n = points.length
-  if (n < 3) return createDegenerate('polynomial')
+  if (n < 3) return createDegenerate('polynomial', 0, n)
   const xs = points.map((p) => p.x)
 
   let a: number
@@ -219,6 +225,8 @@ export function polynomialRegression(
     ),
     formula: buildPolynomialFormula(coefs),
     predict,
+    filteredCount: n,
+    totalCount: n,
   }
 }
 
@@ -227,7 +235,7 @@ export function exponentialRegression(
   _options: FitOptions = {},
 ): RegressionResult {
   const valid = points.filter((p) => p.y > 0)
-  if (valid.length < 2) return createDegenerate('exponential')
+  if (valid.length < 2) return createDegenerate('exponential', valid.length, points.length)
 
   // Center x values for numerical stability
   const mu = mean(valid.map((p) => p.x))
@@ -251,6 +259,8 @@ export function exponentialRegression(
     ),
     formula: buildExponentialFormula(coefs),
     predict,
+    filteredCount: valid.length,
+    totalCount: points.length,
   }
 }
 
@@ -259,7 +269,7 @@ export function powerRegression(
   _options: FitOptions = {},
 ): RegressionResult {
   const valid = points.filter((p) => p.x > 0 && p.y > 0)
-  if (valid.length < 2) return createDegenerate('power')
+  if (valid.length < 2) return createDegenerate('power', valid.length, points.length)
 
   // Center ln(x) values for numerical stability
   const logXs = valid.map((p) => Math.log(p.x))
@@ -287,6 +297,8 @@ export function powerRegression(
     ),
     formula: buildPowerFormula(coefs),
     predict,
+    filteredCount: valid.length,
+    totalCount: points.length,
   }
 }
 
@@ -307,13 +319,19 @@ export function fitRegression(
   }
 }
 
-function createDegenerate(type: RegressionType): RegressionResult {
+function createDegenerate(
+  type: RegressionType,
+  filteredCount = 0,
+  totalCount = 0,
+): RegressionResult {
   return {
     type,
     formula: '資料不足，無法擬合',
     r2: NaN,
     coefs: {},
     predict: () => null,
+    filteredCount,
+    totalCount,
   }
 }
 

@@ -24,27 +24,38 @@ function rowsToObjects(headers: string[], rows: unknown[][]): RawRow[] {
   return result
 }
 
-export async function parseCSV(file: File): Promise<RawRow[]> {
-  const text = await file.text()
-  const trimmed = text
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== '')
-    .join('\n')
-
-  const parsed = Papa.parse<RawRow>(trimmed, {
+export function parseCSVText(text: string): RawRow[] {
+  const parsed = Papa.parse<RawRow>(text, {
     header: true,
     skipEmptyLines: true,
     dynamicTyping: true,
+    transformHeader: (h: string) => h.trim(),
   })
 
-  return parsed.data.map((row) => {
-    const clean: RawRow = {}
-    Object.keys(row).forEach((key) => {
-      const trimmedKey = key.trim()
-      clean[trimmedKey] = row[key]
+  return parsed.data
+    .filter((row) => {
+      // Papa may return empty objects for trailing newlines; skip them
+      const keys = Object.keys(row)
+      if (keys.length === 0) return false
+      // skip rows where every value is empty/null/undefined/whitespace
+      return !keys.every((k) => {
+        const v = row[k]
+        return v === null || v === undefined || String(v).trim() === ''
+      })
     })
-    return clean
-  })
+    .map((row) => {
+      const clean: RawRow = {}
+      Object.keys(row).forEach((key) => {
+        const trimmedKey = key.trim() || `column_${Object.keys(clean).length + 1}`
+        clean[trimmedKey] = row[key]
+      })
+      return clean
+    })
+}
+
+export async function parseCSV(file: File): Promise<RawRow[]> {
+  const text = await file.text()
+  return parseCSVText(text)
 }
 
 export async function parseTxt(file: File): Promise<RawRow[]> {

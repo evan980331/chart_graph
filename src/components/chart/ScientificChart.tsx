@@ -127,7 +127,7 @@ function buildFitTrace(
       width: settings.lineWidth,
       dash: DASH_MAP[settings.lineStyle],
     },
-    name: `${fit.formula}  (R² = ${formatR2(fit.r2)})`,
+    name: `${fit.formula}  (R² = ${formatR2(fit.r2)}, n=${formatCount(fit)})`,
     showlegend: true,
     hoverinfo: 'skip',
   }
@@ -135,7 +135,15 @@ function buildFitTrace(
 
 function formatR2(r2: number): string {
   if (Number.isNaN(r2)) return 'N/A'
+  // clamp only for display; raw r2 may be <0 or >1
+  const clamped = Math.max(0, Math.min(1, r2))
+  if (clamped !== r2) return `${r2.toFixed(4)} (顯示 0–1 以外)`
   return r2.toFixed(4)
+}
+
+function formatCount(fit: RegressionResult): string {
+  if (fit.filteredCount === fit.totalCount) return String(fit.filteredCount)
+  return `${fit.filteredCount}/${fit.totalCount}`
 }
 
 export function ScientificChart({
@@ -231,7 +239,7 @@ export function ScientificChart({
     const family = resolveFontFamily(styleConfig.font)
     const regressionText =
       fit && !Number.isNaN(fit.r2)
-        ? `${fit.formula}  (R² = ${formatR2(fit.r2)})`
+        ? `${fit.formula}  (R² = ${formatR2(fit.r2)}, n=${formatCount(fit)})`
         : null
 
     return {
@@ -317,8 +325,13 @@ export function ScientificChart({
         msgs.push('所有數據點的 Y 值均相同，回歸線斜率為 0。')
       }
     }
+    if (fit && fit.filteredCount !== fit.totalCount) {
+      msgs.push(
+        `回歸已過濾 ${fit.totalCount - fit.filteredCount} 筆無效點（n=${fit.filteredCount}/${fit.totalCount}）。`,
+      )
+    }
     return msgs
-  }, [points, mapping, regression])
+  }, [points, mapping, regression, fit])
 
   return (
     <div className={cn('w-full', fill && 'flex h-full flex-col')}>
