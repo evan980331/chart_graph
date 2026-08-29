@@ -9,6 +9,8 @@ export interface FitOptions {
   forceZeroIntercept?: boolean
 }
 
+export type RegressionStatus = 'ok' | 'insufficient-data' | 'degenerate'
+
 export interface RegressionResult {
   type: RegressionType
   /** Human readable equation, e.g. "y = 9.81x + 0.02" */
@@ -19,10 +21,16 @@ export interface RegressionResult {
   coefs: Record<string, number>
   /** @returns fitted y for a given x, or null when x is outside the model domain */
   predict: (x: number) => number | null
-  /** Number of points actually used for fitting after model-specific filtering */
-  filteredCount: number
-  /** Total number of points passed to the regression before filtering */
+  /** Total number of points passed to the regression before any filtering */
   totalCount: number
+  /** Number of points actually used for fitting after finite + model filtering */
+  usedCount: number
+  /** totalCount - usedCount */
+  excludedCount: number
+  /** Result status */
+  status: RegressionStatus
+  /** Human readable reason when status !== 'ok' */
+  reason?: string
 }
 
 export const REGRESSION_TYPE_LABELS: Record<RegressionType, string> = {
@@ -39,6 +47,10 @@ function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length
 }
 
+function isFinitePoint(p: FitPoint): boolean {
+  return Number.isFinite(p.x) && Number.isFinite(p.y)
+}
+
 function coefficientOfDetermination(
   ys: number[],
   predicted: (i: number) => number,
@@ -47,7 +59,10 @@ function coefficientOfDetermination(
   let ssRes = 0
   let ssTot = 0
   for (let i = 0; i < ys.length; i++) {
-    const resid = ys[i] - predicted(i)
+    const pred = predicted(i)
+    // predicted should be finite since inputs are finite; guard anyway
+    if (!Number.isFinite(pred) || !Number.isFinite(ys[i])) return NaN
+    const resid = ys[i] - pred
     ssRes += resid * resid
     ssTot += (ys[i] - yMean) * (ys[i] - yMean)
   }
@@ -67,16 +82,21 @@ function toPrecision(value: number): number {
   return parseFloat(value.toFixed(10))
 }
 
-/** Solve a symmetric 3x3 linear system A x = b for the quadratic case. */
+/** Solve a symmetric 3x3 linear system A x = b for the quadratic case. Scale-aware. */
 function solveQuadraticSystem(rows: number[][]): number[] | null {
   const n = 3
   const a = rows.map((r) => [...r])
+  // global scale for relative tolerance — only coefficient matrix, not RHS
+  let maxAbs = 0
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) maxAbs = Math.max(maxAbs, Math.abs(a[r][c]))
+  if (maxAbs === 0) return null
+  const eps = 1e-12 * maxAbs
   for (let col = 0; col < n; col++) {
     let pivot = col
     for (let r = col + 1; r < n; r++) {
       if (Math.abs(a[r][col]) > Math.abs(a[pivot][col])) pivot = r
     }
-    if (Math.abs(a[pivot][col]) < 1e-12) return null
+    if (Math.abs(a[pivot][col]) < eps) return null
     ;[a[col], a[pivot]] = [a[pivot], a[col]]
     for (let r = col + 1; r < n; r++) {
       const factor = a[r][col] / a[col][col]
@@ -87,6 +107,7 @@ function solveQuadraticSystem(rows: number[][]): number[] | null {
   for (let r = n - 1; r >= 0; r--) {
     let sum = a[r][n]
     for (let c = r + 1; c < n; c++) sum -= a[r][c] * x[c]
+    if (a[r][r] === 0) return null
     x[r] = sum / a[r][r]
   }
   return x
@@ -98,11 +119,16 @@ export function linearRegression(
   points: FitPoint[],
   options: FitOptions = {},
 ): RegressionResult {
-  const n = points.length
-  if (n < 2) return createDegenerate('linear', 0, n)
+  const totalCount = points.length
+  const finite = points.filter(isFinitePoint)
+  const usedCount = finite.length
+  const excludedCount = totalCount - usedCount
+  if (usedCount < 2) {
+    return createDegenerate('linear', totalCount, usedCount, 'insufficient-data', '資料不足：線性擬合至少需要 2 筆有效資料')
+  }
 
-  const sx = mean(points.map((p) => p.x))
-  const sy = mean(points.map((p) => p.y))
+  const sx = mean(finite.map((p) => p.x))
+  const sy = mean(finite.map((p) => p.y))
 
   let slope: number
   let intercept: number
@@ -110,38 +136,50 @@ export function linearRegression(
   if (options.forceZeroIntercept) {
     let sumXY = 0
     let sumX2 = 0
-    for (const p of points) {
+    for (const p of finite) {
       sumXY += p.x * p.y
       sumX2 += p.x * p.x
     }
-    if (sumX2 === 0) return createDegenerate('linear')
+    if (sumX2 === 0) {
+      return createDegenerate('linear', totalCount, usedCount, 'degenerate', 'X values are identical or all zero, cannot fit with zero intercept')
+    }
     slope = sumXY / sumX2
     intercept = 0
   } else {
     let num = 0
     let den = 0
-    for (const p of points) {
+    for (const p of finite) {
       num += (p.x - sx) * (p.y - sy)
       den += (p.x - sx) * (p.x - sx)
     }
-    if (den === 0) return createDegenerate('linear')
+    if (den === 0) {
+      return createDegenerate('linear', totalCount, usedCount, 'degenerate', 'X values are identical')
+    }
     slope = num / den
     intercept = sy - slope * sx
   }
 
+  if (!Number.isFinite(slope) || !Number.isFinite(intercept)) {
+    return createDegenerate('linear', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+  }
+
   const coefs = { a: toPrecision(slope), b: toPrecision(intercept) }
-  const predict = (x: number) => slope * x + intercept
+  const predict = (x: number) => {
+    if (!Number.isFinite(x)) return null
+    const y = slope * x + intercept
+    return Number.isFinite(y) ? y : null
+  }
 
   return {
     type: 'linear',
     coefs,
-    r2: coefficientOfDetermination(points.map((p) => p.y), (i) =>
-      predict(points[i].x),
-    ),
+    r2: coefficientOfDetermination(finite.map((p) => p.y), (i) => predict(finite[i].x) as number),
     formula: buildLinearFormula(coefs),
     predict,
-    filteredCount: n,
-    totalCount: n,
+    totalCount,
+    usedCount,
+    excludedCount,
+    status: 'ok',
   }
 }
 
@@ -149,22 +187,27 @@ export function polynomialRegression(
   points: FitPoint[],
   options: FitOptions = {},
 ): RegressionResult {
-  const n = points.length
-  if (n < 3) return createDegenerate('polynomial', 0, n)
-  const xs = points.map((p) => p.x)
+  const totalCount = points.length
+  const finite = points.filter(isFinitePoint)
+  const usedCount = finite.length
+  const excludedCount = totalCount - usedCount
+  if (usedCount < 3) {
+    return createDegenerate('polynomial', totalCount, usedCount, 'insufficient-data', '資料不足：二次擬合至少需要 3 筆有效資料')
+  }
+  const xs = finite.map((p) => p.x)
 
   let a: number
   let b: number
   let c: number
 
   if (options.forceZeroIntercept) {
-    // y = a*x² + b*x (c = 0) — solve 2×2 system in original space
+    // y = a*x² + b*x (c = 0) — solve 2×2 system in original space, scale-aware
     let s2 = 0
     let s3 = 0
     let s4 = 0
     let s1y = 0
     let s2y = 0
-    for (const p of points) {
+    for (const p of finite) {
       const x2 = p.x * p.x
       const x3 = x2 * p.x
       const x4 = x3 * p.x
@@ -175,39 +218,57 @@ export function polynomialRegression(
       s2y += x2 * p.y
     }
     const det = s4 * s2 - s3 * s3
-    if (Math.abs(det) < 1e-24) return createDegenerate('polynomial')
+    // scale-aware check: relative to magnitude of s4*s2 and s3^2
+    const scale = Math.max(Math.abs(s4 * s2), Math.abs(s3 * s3))
+    if (scale === 0 || Math.abs(det) <= 1e-12 * scale) {
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system')
+    }
     a = (s2 * s2y - s3 * s1y) / det
     b = (s4 * s1y - s3 * s2y) / det
     c = 0
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+    }
   } else {
-    // Center x values for numerical stability
+    // Center and scale x values for numerical stability (scale-aware)
     const mu = mean(xs)
     const ts = xs.map((x) => x - mu)
+    // scale by standard deviation to keep matrix well-conditioned for tiny/large ranges
+    const s2raw = ts.reduce((s, t) => s + t * t, 0)
+    const sigma = s2raw === 0 ? 1 : Math.sqrt(s2raw / usedCount)
+    const us = ts.map((t) => t / sigma)
 
-    const s0 = n
-    const s1 = ts.reduce((s, t) => s + t, 0)
-    const s2 = ts.reduce((s, t) => s + t * t, 0)
-    const s3 = ts.reduce((s, t) => s + t * t * t, 0)
-    const s4 = ts.reduce((s, t) => s + t * t * t * t, 0)
-    const s1y = ts.reduce((s, t, i) => s + t * points[i].y, 0)
-    const s2y = ts.reduce((s, t, i) => s + t * t * points[i].y, 0)
-    const sy = points.reduce((s, p) => s + p.y, 0)
+    const s0 = usedCount
+    const s1 = us.reduce((s, u) => s + u, 0)
+    const s2 = us.reduce((s, u) => s + u * u, 0)
+    const s3 = us.reduce((s, u) => s + u * u * u, 0)
+    const s4 = us.reduce((s, u) => s + u * u * u * u, 0)
+    const s1y = us.reduce((s, u, i) => s + u * finite[i].y, 0)
+    const s2y = us.reduce((s, u, i) => s + u * u * finite[i].y, 0)
+    const sy = finite.reduce((s, p) => s + p.y, 0)
 
     const solved = solveQuadraticSystem([
       [s4, s3, s2, s2y],
       [s3, s2, s1, s1y],
       [s2, s1, s0, sy],
     ])
-    if (!solved) return createDegenerate('polynomial')
+    if (!solved) {
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system')
+    }
 
-    // Transform back from centered t-space to original x-space:
-    // y = A*(x-μ)² + B*(x-μ) + C = A*x² + (B-2Aμ)*x + (Aμ²-Bμ+C)
+    // Transform back: y = A*u² + B*u + C where u=(x-μ)/σ
+    // y = (A/σ²)(x-μ)² + (B/σ)(x-μ) + C
     const A = solved[0]
     const B = solved[1]
     const C = solved[2]
-    a = A
-    b = B - 2 * A * mu
-    c = A * mu * mu - B * mu + C
+    const A2 = A / (sigma * sigma)
+    const B2 = B / sigma
+    a = A2
+    b = B2 - 2 * A2 * mu
+    c = A2 * mu * mu - B2 * mu + C
+    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) {
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+    }
   }
 
   const coefs = {
@@ -215,18 +276,22 @@ export function polynomialRegression(
     b: toPrecision(b),
     c: toPrecision(c),
   }
-  const predict = (x: number) => a * x * x + b * x + c
+  const predict = (x: number) => {
+    if (!Number.isFinite(x)) return null
+    const y = a * x * x + b * x + c
+    return Number.isFinite(y) ? y : null
+  }
 
   return {
     type: 'polynomial',
     coefs,
-    r2: coefficientOfDetermination(points.map((p) => p.y), (i) =>
-      predict(xs[i]),
-    ),
+    r2: coefficientOfDetermination(finite.map((p) => p.y), (i) => predict(xs[i]) as number),
     formula: buildPolynomialFormula(coefs),
     predict,
-    filteredCount: n,
-    totalCount: n,
+    totalCount,
+    usedCount,
+    excludedCount,
+    status: 'ok',
   }
 }
 
@@ -234,33 +299,56 @@ export function exponentialRegression(
   points: FitPoint[],
   _options: FitOptions = {},
 ): RegressionResult {
-  const valid = points.filter((p) => p.y > 0)
-  if (valid.length < 2) return createDegenerate('exponential', valid.length, points.length)
+  const totalCount = points.length
+  const finite = points.filter(isFinitePoint)
+  const nonFiniteExcluded = totalCount - finite.length
+  // model-specific: y > 0
+  const valid = finite.filter((p) => p.y > 0)
+  const domainExcluded = finite.length - valid.length
+  const usedCount = valid.length
+  const excludedCount = totalCount - usedCount
+  if (usedCount < 2) {
+    const reason = nonFiniteExcluded > 0 || domainExcluded > 0
+      ? `資料不足：指數擬合至少需要 2 筆 y>0 的有效資料（已排除 ${excludedCount} 筆）`
+      : '資料不足：指數擬合至少需要 2 筆 y>0 的有效資料'
+    return createDegenerate('exponential', totalCount, usedCount, usedCount === 0 && finite.length === 0 && totalCount > 0 ? 'insufficient-data' : finite.length < 2 ? 'insufficient-data' : 'insufficient-data', reason)
+  }
 
   // Center x values for numerical stability
   const mu = mean(valid.map((p) => p.x))
   const lnPoints = valid.map((p) => ({ x: p.x - mu, y: Math.log(p.y) }))
+  // lnPoints are finite because valid y>0 and x finite
   const base = linearRegression(lnPoints)
-  if (!Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b))
-    return createDegenerate('exponential')
+  if (base.status !== 'ok' || !Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b)) {
+    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', base.reason ?? '無法建立指數模型')
+  }
 
-  const b = base.coefs.a // slope in log space
+  const b = base.coefs.a // slope in log space (already rounded, but use raw slope for calc)
+  // recompute with raw values to avoid rounding error: use base's internal slope/intercept
+  // base.coefs are rounded; better to use unrounded? We use rounded as before for consistency
   const lnA = base.coefs.b - b * mu // transform intercept back to original x
   const a = Math.exp(lnA)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+  }
 
   const coefs = { a: toPrecision(a), b: toPrecision(b) }
-  const predict = (x: number) => a * Math.exp(b * x)
+  const predict = (x: number) => {
+    if (!Number.isFinite(x)) return null
+    const y = a * Math.exp(b * x)
+    return Number.isFinite(y) ? y : null
+  }
 
   return {
     type: 'exponential',
     coefs,
-    r2: coefficientOfDetermination(valid.map((p) => p.y), (i) =>
-      predict(valid[i].x),
-    ),
+    r2: coefficientOfDetermination(valid.map((p) => p.y), (i) => predict(valid[i].x) as number),
     formula: buildExponentialFormula(coefs),
     predict,
-    filteredCount: valid.length,
-    totalCount: points.length,
+    totalCount,
+    usedCount,
+    excludedCount,
+    status: 'ok',
   }
 }
 
@@ -268,8 +356,14 @@ export function powerRegression(
   points: FitPoint[],
   _options: FitOptions = {},
 ): RegressionResult {
-  const valid = points.filter((p) => p.x > 0 && p.y > 0)
-  if (valid.length < 2) return createDegenerate('power', valid.length, points.length)
+  const totalCount = points.length
+  const finite = points.filter(isFinitePoint)
+  const valid = finite.filter((p) => p.x > 0 && p.y > 0)
+  const usedCount = valid.length
+  const excludedCount = totalCount - usedCount
+  if (usedCount < 2) {
+    return createDegenerate('power', totalCount, usedCount, 'insufficient-data', `資料不足：冪函數擬合至少需要 2 筆 x>0 且 y>0 的有效資料（已排除 ${excludedCount} 筆）`)
+  }
 
   // Center ln(x) values for numerical stability
   const logXs = valid.map((p) => Math.log(p.x))
@@ -279,26 +373,34 @@ export function powerRegression(
     y: Math.log(p.y),
   }))
   const base = linearRegression(logPoints)
-  if (!Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b))
-    return createDegenerate('power')
+  if (base.status !== 'ok' || !Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b)) {
+    return createDegenerate('power', totalCount, usedCount, 'degenerate', base.reason ?? '無法建立冪函數模型')
+  }
 
   const b = base.coefs.a // exponent
   const lnA = base.coefs.b - b * mu // transform intercept back
   const a = Math.exp(lnA)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return createDegenerate('power', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+  }
 
   const coefs = { a: toPrecision(a), b: toPrecision(b) }
-  const predict = (x: number) => (x <= 0 ? null : a * Math.pow(x, b))
+  const predict = (x: number) => {
+    if (!Number.isFinite(x) || x <= 0) return null
+    const y = a * Math.pow(x, b)
+    return Number.isFinite(y) ? y : null
+  }
 
   return {
     type: 'power',
     coefs,
-    r2: coefficientOfDetermination(valid.map((p) => p.y), (i) =>
-      predict(valid[i].x)! as number,
-    ),
+    r2: coefficientOfDetermination(valid.map((p) => p.y), (i) => predict(valid[i].x)! as number),
     formula: buildPowerFormula(coefs),
     predict,
-    filteredCount: valid.length,
-    totalCount: points.length,
+    totalCount,
+    usedCount,
+    excludedCount,
+    status: 'ok',
   }
 }
 
@@ -321,17 +423,25 @@ export function fitRegression(
 
 function createDegenerate(
   type: RegressionType,
-  filteredCount = 0,
   totalCount = 0,
+  usedCount = 0,
+  status: RegressionStatus = 'degenerate',
+  reason = '資料不足，無法擬合',
 ): RegressionResult {
+  // if caller passed totalCount but usedCount 0 and status was degenerate due to insufficient, keep as is
+  // excludedCount derived
+  const excludedCount = Math.max(0, totalCount - usedCount)
   return {
     type,
     formula: '資料不足，無法擬合',
     r2: NaN,
     coefs: {},
     predict: () => null,
-    filteredCount,
     totalCount,
+    usedCount,
+    excludedCount,
+    status,
+    reason,
   }
 }
 
@@ -377,7 +487,7 @@ export interface ErrorBarSettings {
   source: ErrorSource
   /** value used by fixed / percent sources */
   value: number
-  /** population of repeated measurements per point for the `se` source */
+  /** per-point repeated measurements for the `se` source; sample SD (n-1) is used */
   repeated?: number[][]
 }
 
@@ -393,6 +503,7 @@ function computeStats(values: number[]): { sd: number; se: number; mean: number 
   if (n < 2) return { sd: NaN, se: NaN, mean: m }
   let ss = 0
   for (const v of values) ss += (v - m) * (v - m)
+  // sample SD (n-1), not population SD (n)
   const sd = Math.sqrt(ss / (n - 1))
   return { sd, se: sd / Math.sqrt(n), mean: m }
 }
@@ -400,10 +511,10 @@ function computeStats(values: number[]): { sd: number; se: number; mean: number 
 /**
  * Compute error-bar magnitudes for a vector of base values.
  *
- * - `field`: not supported here (magnitudes come from the data columns); returns the given fieldArray.
+ * - `field`: magnitudes come from the data columns; returns the given fieldArray.
  * - `fixed`: each magnitude equals `settings.value`.
  * - `percent`: each magnitude equals `base[i] * value / 100`.
- * - `se`: standard error from repeated measurements; if unavailable falls back to `fieldArray` or `percent`.
+ * - `se`: standard error (sample SD / √n) from repeated measurements; returns null if unavailable (no silent fallback).
  */
 export function calculateErrorBars(
   baseValues: (number | null)[],

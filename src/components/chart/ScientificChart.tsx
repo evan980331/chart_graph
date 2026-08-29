@@ -142,8 +142,8 @@ function formatR2(r2: number): string {
 }
 
 function formatCount(fit: RegressionResult): string {
-  if (fit.filteredCount === fit.totalCount) return String(fit.filteredCount)
-  return `${fit.filteredCount}/${fit.totalCount}`
+  if (fit.usedCount === fit.totalCount) return String(fit.usedCount)
+  return `${fit.usedCount}/${fit.totalCount}`
 }
 
 export function ScientificChart({
@@ -325,10 +325,13 @@ export function ScientificChart({
         msgs.push('所有數據點的 Y 值均相同，回歸線斜率為 0。')
       }
     }
-    if (fit && fit.filteredCount !== fit.totalCount) {
+    if (fit && fit.excludedCount > 0) {
       msgs.push(
-        `回歸已過濾 ${fit.totalCount - fit.filteredCount} 筆無效點（n=${fit.filteredCount}/${fit.totalCount}）。`,
+        `回歸已排除 ${fit.excludedCount} 筆無效點（使用 ${fit.usedCount} / ${fit.totalCount} 筆）。`,
       )
+    }
+    if (fit && fit.status !== 'ok' && fit.reason) {
+      msgs.push(fit.reason)
     }
     return msgs
   }, [points, mapping, regression, fit])
