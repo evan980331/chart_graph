@@ -32,6 +32,10 @@ export function toNumber(value: unknown): number | null {
 
 const EMPTY_MAPPING: ColumnMapping = { xAxis: '', yAxis: '' }
 
+const INITIAL_COLUMN = '欄位 1'
+const INITIAL_COLUMNS: string[] = [INITIAL_COLUMN]
+const INITIAL_RAW_DATA: RawRow[] = [{ [INITIAL_COLUMN]: null }]
+
 interface ChartStore {
   rawData: RawRow[]
   columns: string[]
@@ -120,8 +124,8 @@ export const useChartStore = create<ChartStore>()(
   persist(
     temporal(
       (set, get) => ({
-        rawData: [],
-        columns: [],
+        rawData: INITIAL_RAW_DATA,
+        columns: INITIAL_COLUMNS,
         mapping: EMPTY_MAPPING,
         chartType: 'scatter',
         config: DEFAULT_CHART_CONFIG,
@@ -141,17 +145,22 @@ export const useChartStore = create<ChartStore>()(
         updateRawData: (rows) => {
           const columns = extractColumns(rows)
           const current = get().mapping
-          const mapping: ColumnMapping = {
-            xAxis: current.xAxis,
-            yAxis: current.yAxis,
-            xError:
-              current.xError && columns.includes(current.xError)
-                ? current.xError
-                : undefined,
-            yError:
-              current.yError && columns.includes(current.yError)
-                ? current.yError
-                : undefined,
+          let mapping: ColumnMapping
+          if ((!current.xAxis || !current.yAxis) && columns.length >= 2) {
+            mapping = inferMapping(columns)
+          } else {
+            mapping = {
+              xAxis: current.xAxis,
+              yAxis: current.yAxis,
+              xError:
+                current.xError && columns.includes(current.xError)
+                  ? current.xError
+                  : undefined,
+              yError:
+                current.yError && columns.includes(current.yError)
+                  ? current.yError
+                  : undefined,
+            }
           }
           set({ rawData: rows, columns, mapping })
           get().updateInvalidCount(rows, mapping)
@@ -204,7 +213,12 @@ export const useChartStore = create<ChartStore>()(
         },
 
         clearData: () => {
-          set({ rawData: [], columns: [], mapping: EMPTY_MAPPING, invalidCount: 0 })
+          set({
+            rawData: INITIAL_RAW_DATA,
+            columns: INITIAL_COLUMNS,
+            mapping: EMPTY_MAPPING,
+            invalidCount: 0,
+          })
         },
 
         setPreviewSize: (size) => set({ previewSize: size }),
@@ -220,8 +234,8 @@ export const useChartStore = create<ChartStore>()(
 
         resetProject: () => {
           set({
-            rawData: [],
-            columns: [],
+            rawData: INITIAL_RAW_DATA,
+            columns: INITIAL_COLUMNS,
             mapping: EMPTY_MAPPING,
             chartType: 'scatter',
             config: DEFAULT_CHART_CONFIG,
