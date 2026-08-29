@@ -12,7 +12,7 @@ import {
   type ErrorBarSettings,
   type RegressionResult,
 } from '@/utils/mathStats'
-import { getDisplayPoints } from '@/utils/downsample'
+import { bucketWidth, getDisplayPoints } from '@/utils/downsample'
 import type { AxisConfig } from '@/types/chart'
 import type { AxisErrorBarSettings, RegressionSettings } from '@/types/analysis'
 import {
@@ -189,11 +189,12 @@ export function ScientificChart({
     )
   }, [points, regression])
 
-  // Visualization layer: displayPoints downsampled by width
+  // Visualization layer: displayPoints downsampled by bucketed width (decouples resize per-pixel)
   const effectiveWidth = width ?? (fill ? 800 : undefined)
+  const bucketedW = bucketWidth(effectiveWidth)
   const displayPoints = useMemo(
-    () => getDisplayPoints(points, chartType, effectiveWidth),
-    [points, chartType, effectiveWidth],
+    () => getDisplayPoints(points, chartType, bucketedW),
+    [points, chartType, bucketedW],
   )
 
   const traces = useMemo<Plotly.Data[]>(() => {

@@ -56,11 +56,23 @@ export function lttbDownsample(points: CleanPoint[], threshold: number): CleanPo
   return sampled
 }
 
+/** Buckets: 200px per step to avoid per-pixel recompute. e.g. 800-999 → 800 */
+export function bucketWidth(width: number | undefined): number {
+  const w = width && Number.isFinite(width) && width > 0 ? width : 800
+  return Math.floor(w / 200) * 200
+}
+
+export function targetForWidth(width: number | undefined): number {
+  const bw = bucketWidth(width)
+  return Math.round(Math.min(4000, Math.max(2000, bw * 2.5)))
+}
+
 /**
  * Build display data from raw analysis points.
  * - rawData never mutated
  * - Bar: no downsampling (preserve categories), caller may warn if huge
- * - Line/Scatter: LTTB if exceeds threshold, target ≈ width * 2~3
+ * - Line/Scatter: LTTB if exceeds threshold, target ≈ bucketed width * 2.5
+ * Bucket ensures width 800-999 all map to same target, avoiding per-pixel LTTB.
  */
 export function getDisplayPoints(
   points: CleanPoint[],
@@ -73,9 +85,7 @@ export function getDisplayPoints(
   const DISPLAY_THRESHOLD = 2000
   if (points.length <= DISPLAY_THRESHOLD) return points
 
-  // width-based target: 800px → 2000 pts, scale 2~3x
-  const w = chartWidth && Number.isFinite(chartWidth) && chartWidth > 0 ? chartWidth : 800
-  const target = Math.round(Math.min(4000, Math.max(DISPLAY_THRESHOLD, w * 2.5)))
+  const target = targetForWidth(chartWidth)
   if (points.length <= target) return points
 
   // LTTB expects x-sorted; sort copy for display only
