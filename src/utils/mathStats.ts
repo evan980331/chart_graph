@@ -48,7 +48,7 @@ function coefficientOfDetermination(
     ssTot += (ys[i] - yMean) * (ys[i] - yMean)
   }
   if (ssTot === 0) return Number.isFinite(ssRes) && Math.abs(ssRes) < 1e-12 ? 1 : 0
-  return Math.max(0, Math.min(1, 1 - ssRes / ssTot))
+  return 1 - ssRes / ssTot
 }
 
 function formatNumber(value: number): string {
@@ -152,11 +152,12 @@ export function polynomialRegression(
   let c: number
 
   if (options.forceZeroIntercept) {
+    // y = a*x² + b*x (c = 0) — solve 2×2 system in original space
     let s2 = 0
     let s3 = 0
     let s4 = 0
+    let s1y = 0
     let s2y = 0
-    let sy1 = 0
     for (const p of points) {
       const x2 = p.x * p.x
       const x3 = x2 * p.x
@@ -164,34 +165,43 @@ export function polynomialRegression(
       s2 += x2
       s3 += x3
       s4 += x4
+      s1y += p.x * p.y
       s2y += x2 * p.y
-      sy1 += p.y
     }
-    const det = s2 * s4 - s3 * s3
-    if (det === 0) return createDegenerate('polynomial')
-    // solve [[s2, s3],[s3, s4]] [c,b] = [sy1, s2y]
-    b = (s4 * sy1 - s3 * s2y) / det
-    c = (s2 * s2y - s3 * sy1) / det
-    a = 0
+    const det = s4 * s2 - s3 * s3
+    if (Math.abs(det) < 1e-24) return createDegenerate('polynomial')
+    a = (s2 * s2y - s3 * s1y) / det
+    b = (s4 * s1y - s3 * s2y) / det
+    c = 0
   } else {
+    // Center x values for numerical stability
+    const mu = mean(xs)
+    const ts = xs.map((x) => x - mu)
+
     const s0 = n
-    const s1 = points.reduce((s, p) => s + p.x, 0)
-    const s2 = points.reduce((s, p) => s + p.x * p.x, 0)
-    const s3 = points.reduce((s, p) => s + p.x * p.x * p.x, 0)
-    const s4 = points.reduce((s, p) => s + p.x ** 4, 0)
-    const s1y = points.reduce((s, p) => s + p.x * p.y, 0)
-    const s2y = points.reduce((s, p) => s + p.x * p.x * p.y, 0)
-    const sy1 = points.reduce((s, p) => s + p.y, 0)
+    const s1 = ts.reduce((s, t) => s + t, 0)
+    const s2 = ts.reduce((s, t) => s + t * t, 0)
+    const s3 = ts.reduce((s, t) => s + t * t * t, 0)
+    const s4 = ts.reduce((s, t) => s + t * t * t * t, 0)
+    const s1y = ts.reduce((s, t, i) => s + t * points[i].y, 0)
+    const s2y = ts.reduce((s, t, i) => s + t * t * points[i].y, 0)
+    const sy = points.reduce((s, p) => s + p.y, 0)
 
     const solved = solveQuadraticSystem([
       [s4, s3, s2, s2y],
       [s3, s2, s1, s1y],
-      [s2, s1, s0, sy1],
+      [s2, s1, s0, sy],
     ])
     if (!solved) return createDegenerate('polynomial')
-    a = solved[0]
-    b = solved[1]
-    c = solved[2]
+
+    // Transform back from centered t-space to original x-space:
+    // y = A*(x-μ)² + B*(x-μ) + C = A*x² + (B-2Aμ)*x + (Aμ²-Bμ+C)
+    const A = solved[0]
+    const B = solved[1]
+    const C = solved[2]
+    a = A
+    b = B - 2 * A * mu
+    c = A * mu * mu - B * mu + C
   }
 
   const coefs = {
@@ -214,18 +224,20 @@ export function polynomialRegression(
 
 export function exponentialRegression(
   points: FitPoint[],
-  options: FitOptions = {},
+  _options: FitOptions = {},
 ): RegressionResult {
   const valid = points.filter((p) => p.y > 0)
   if (valid.length < 2) return createDegenerate('exponential')
 
-  const lnPoints = valid.map((p) => ({ x: p.x, y: Math.log(p.y) }))
-  const base = linearRegression(lnPoints, options)
+  // Center x values for numerical stability
+  const mu = mean(valid.map((p) => p.x))
+  const lnPoints = valid.map((p) => ({ x: p.x - mu, y: Math.log(p.y) }))
+  const base = linearRegression(lnPoints)
   if (!Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b))
     return createDegenerate('exponential')
 
   const b = base.coefs.a // slope in log space
-  const lnA = base.coefs.b // intercept in log space
+  const lnA = base.coefs.b - b * mu // transform intercept back to original x
   const a = Math.exp(lnA)
 
   const coefs = { a: toPrecision(a), b: toPrecision(b) }
@@ -244,21 +256,24 @@ export function exponentialRegression(
 
 export function powerRegression(
   points: FitPoint[],
-  options: FitOptions = {},
+  _options: FitOptions = {},
 ): RegressionResult {
   const valid = points.filter((p) => p.x > 0 && p.y > 0)
   if (valid.length < 2) return createDegenerate('power')
 
-  const logPoints = valid.map((p) => ({
-    x: Math.log(p.x),
+  // Center ln(x) values for numerical stability
+  const logXs = valid.map((p) => Math.log(p.x))
+  const mu = mean(logXs)
+  const logPoints = valid.map((p, i) => ({
+    x: logXs[i] - mu,
     y: Math.log(p.y),
   }))
-  const base = linearRegression(logPoints, options)
+  const base = linearRegression(logPoints)
   if (!Number.isFinite(base.coefs.a) || !Number.isFinite(base.coefs.b))
     return createDegenerate('power')
 
   const b = base.coefs.a // exponent
-  const lnA = base.coefs.b
+  const lnA = base.coefs.b - b * mu // transform intercept back
   const a = Math.exp(lnA)
 
   const coefs = { a: toPrecision(a), b: toPrecision(b) }
@@ -356,9 +371,11 @@ export interface ErrorBarOutput {
 
 function computeStats(values: number[]): { sd: number; se: number; mean: number } {
   const m = mean(values)
-  const variance = mean(values.map((v) => (v - m) * (v - m)))
-  const sd = Math.sqrt(variance)
   const n = values.length
+  if (n < 2) return { sd: NaN, se: NaN, mean: m }
+  let ss = 0
+  for (const v of values) ss += (v - m) * (v - m)
+  const sd = Math.sqrt(ss / (n - 1))
   return { sd, se: sd / Math.sqrt(n), mean: m }
 }
 
@@ -382,8 +399,6 @@ export function calculateErrorBars(
     result.array = fieldArray
     return result
   }
-
-  const n = baseValues.length
 
   if (settings.source === 'fixed') {
     result.array = baseValues.map(() => settings.value)
@@ -410,14 +425,6 @@ export function calculateErrorBars(
     return result
   }
 
-  // No repeated measurements: fall back to the field error column, then percent
-  if (fieldArray && fieldArray.length === n) {
-    result.array = fieldArray
-    return result
-  }
-
-  result.array = baseValues.map((v) =>
-    v == null ? null : Math.abs(v) * (settings.value / 100),
-  )
+  // No repeated measurements available — do NOT fall back silently.
   return result
 }
