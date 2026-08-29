@@ -12,6 +12,7 @@ import {
   type ErrorBarSettings,
   type RegressionResult,
 } from '@/utils/mathStats'
+import { getDisplayPoints } from '@/utils/downsample'
 import type { AxisConfig } from '@/types/chart'
 import type { AxisErrorBarSettings, RegressionSettings } from '@/types/analysis'
 import {
@@ -178,6 +179,7 @@ export function ScientificChart({
     return result
   }, [rawData, mapping])
 
+  // Analysis layer: regression always on raw points
   const fit = useMemo<RegressionResult | null>(() => {
     if (!regression.enabled || points.length === 0) return null
     return fitRegression(
@@ -187,12 +189,22 @@ export function ScientificChart({
     )
   }, [points, regression])
 
+  // Visualization layer: displayPoints downsampled by width
+  const effectiveWidth = width ?? (fill ? 800 : undefined)
+  const displayPoints = useMemo(
+    () => getDisplayPoints(points, chartType, effectiveWidth),
+    [points, chartType, effectiveWidth],
+  )
+
   const traces = useMemo<Plotly.Data[]>(() => {
-    if (points.length === 0) return []
+    if (displayPoints.length === 0) return []
+
+    const useGL = displayPoints.length > 2000 && (chartType === 'scatter' || chartType === 'line')
+    const scatterType = useGL ? 'scattergl' : 'scatter'
 
     const base: Omit<Plotly.Data, 'type'> = {
-      x: points.map((p) => p.x),
-      y: points.map((p) => p.y),
+      x: displayPoints.map((p) => p.x),
+      y: displayPoints.map((p) => p.y),
       marker: { ...styleConfig.marker },
       line: { color: styleConfig.axisColor, width: styleConfig.lineWidth },
       name: '實驗數據',
@@ -200,13 +212,13 @@ export function ScientificChart({
     }
 
     const errorY = buildErrorObject(
-      points.map((p) => p.y),
-      points.map((p) => p.yError ?? null),
+      displayPoints.map((p) => p.y),
+      displayPoints.map((p) => p.yError ?? null),
       errorBar.y,
     )
     const errorX = buildErrorObject(
-      points.map((p) => p.x),
-      points.map((p) => p.xError ?? null),
+      displayPoints.map((p) => p.x),
+      displayPoints.map((p) => p.xError ?? null),
       errorBar.x,
     )
     if (errorY) base.error_y = errorY
@@ -214,9 +226,9 @@ export function ScientificChart({
 
     const series: Plotly.Data[] = []
     if (chartType === 'scatter') {
-      series.push({ ...base, type: 'scatter', mode: 'markers' })
+      series.push({ ...base, type: scatterType, mode: 'markers' } as Plotly.Data)
     } else if (chartType === 'line') {
-      series.push({ ...base, type: 'scatter', mode: 'lines+markers' })
+      series.push({ ...base, type: scatterType, mode: 'lines+markers' } as Plotly.Data)
     } else {
       series.push({
         ...base,
@@ -232,7 +244,7 @@ export function ScientificChart({
     }
 
     return series
-  }, [points, chartType, regression, errorBar, fit, styleConfig])
+  }, [displayPoints, points, chartType, regression, errorBar, fit, styleConfig])
 
   const layout = useMemo<Partial<Plotly.Layout>>(() => {
     const { xAxis, yAxis } = config
@@ -325,6 +337,12 @@ export function ScientificChart({
         msgs.push('所有數據點的 Y 值均相同，回歸線斜率為 0。')
       }
     }
+    if (chartType === 'bar' && points.length > 2000) {
+      msgs.push(`Bar chart 包含 ${points.length} 筆資料，可能影響效能，但仍可正常顯示。`)
+    }
+    if (displayPoints.length < points.length) {
+      msgs.push(`為提升顯示效能，已對 ${points.length} 筆資料進行視覺化降採樣（顯示 ${displayPoints.length} 筆）；分析仍使用完整資料。`)
+    }
     if (fit) {
       if (fit.excludedCount > 0) {
         const reasons = fit.exclusionReasons ? Object.entries(fit.exclusionReasons).map(([k, v]) => `${v} × ${k}`).join('、') : ''
@@ -337,7 +355,7 @@ export function ScientificChart({
       msgs.push(fit.reason)
     }
     return msgs
-  }, [points, mapping, regression, fit])
+  }, [points, displayPoints, mapping, regression, fit, chartType])
 
   return (
     <div className={cn('w-full', fill && 'flex h-full flex-col')}>

@@ -30,6 +30,15 @@ export function ChartResizeHandle({
     const initial = getInitialSize ? getInitialSize() : { width: width ?? 0, height: height ?? 0 }
     start.current = { x: e.clientX, y: e.clientY, w: initial.width, h: initial.height }
 
+    let raf = 0
+    let pending: { w: number; h: number } | null = null
+    const flush = () => {
+      raf = 0
+      if (pending) {
+        onResize(pending.w, pending.h)
+        pending = null
+      }
+    }
     const move = (ev: PointerEvent) => {
       const s = start.current
       if (!s) return
@@ -37,9 +46,13 @@ export function ChartResizeHandle({
       const dh = ev.clientY - s.y
       const nw = Math.min(maxW, Math.max(minW, Math.round(s.w + dw)))
       const nh = Math.min(maxH, Math.max(minH, Math.round(s.h + dh)))
-      onResize(nw, nh)
+      pending = { w: nw, h: nh }
+      if (!raf) raf = requestAnimationFrame(flush)
     }
     const up = () => {
+      if (raf) cancelAnimationFrame(raf)
+      if (pending) onResize(pending.w, pending.h)
+      pending = null
       start.current = null
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
