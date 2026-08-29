@@ -3,7 +3,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { temporal } from 'zundo'
 import { extractColumns, type RawRow } from '@/utils/fileParser'
-import { mockChartConfig, mockData } from '@/constants/mockData'
 import type { ChartConfig, ChartType, ColumnMapping } from '@/types/chart'
 import {
   DEFAULT_ERROR_BAR_CONFIG,
@@ -95,17 +94,11 @@ function inferMapping(columns: string[]): ColumnMapping {
   }
 }
 
-const INITIAL_ROWS: RawRow[] = mockData.map((d, i) => ({
-  id: `r${i + 1}`,
-  x: d.x,
-  y: d.y,
-  yError: d.yError ?? null,
-}))
-
-const INITIAL_MAPPING: ColumnMapping = {
-  xAxis: 'x',
-  yAxis: 'y',
-  yError: 'yError',
+const DEFAULT_CHART_CONFIG: ChartConfig = {
+  title: '',
+  xAxis: { label: '', unit: '', min: undefined, max: undefined, step: undefined },
+  yAxis: { label: '', unit: '', min: undefined, max: undefined, step: undefined },
+  showGrid: true,
 }
 
 /** zundo 只追蹤可回復的狀態欄位，排除 function 與無關欄位 */
@@ -127,11 +120,11 @@ export const useChartStore = create<ChartStore>()(
   persist(
     temporal(
       (set, get) => ({
-        rawData: INITIAL_ROWS,
-        columns: extractColumns(INITIAL_ROWS),
-        mapping: INITIAL_MAPPING,
+        rawData: [],
+        columns: [],
+        mapping: EMPTY_MAPPING,
         chartType: 'scatter',
-        config: mockChartConfig,
+        config: DEFAULT_CHART_CONFIG,
         invalidCount: 0,
         regression: DEFAULT_REGRESSION,
         errorBar: DEFAULT_ERROR_BAR_CONFIG,
@@ -231,7 +224,7 @@ export const useChartStore = create<ChartStore>()(
             columns: [],
             mapping: EMPTY_MAPPING,
             chartType: 'scatter',
-            config: mockChartConfig,
+            config: DEFAULT_CHART_CONFIG,
             invalidCount: 0,
             regression: DEFAULT_REGRESSION,
             errorBar: DEFAULT_ERROR_BAR_CONFIG,

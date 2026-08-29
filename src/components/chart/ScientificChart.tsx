@@ -18,6 +18,7 @@ import {
   resolveFontFamily,
   type ChartStyleConfig,
 } from '@/types/style'
+import { BarChart3 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 const Plot = createPlotlyComponent(Plotly)
@@ -324,20 +325,37 @@ export function ScientificChart({
       {warnings.map((msg, i) => (
         <DataWarning key={i} message={msg} />
       ))}
-      <div className={cn(fill && 'min-h-0 flex-1')}>
-        <Plot
-          data={traces}
-          layout={layout}
-          config={plotConfig}
-          useResizeHandler={true}
-          divId={divId}
-          style={{
-            width: fill || width === undefined ? '100%' : width,
-            height: fill ? '100%' : height,
-          }}
-          className="w-full"
-        />
-      </div>
+      {points.length === 0 ? (
+        <div
+          className={cn(
+            'flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-neutral-300 bg-neutral-50 text-center',
+            fill ? 'min-h-0 flex-1' : 'min-h-[260px]',
+          )}
+        >
+          <BarChart3 className="h-10 w-10 text-neutral-300" />
+          <p className="text-sm font-medium text-neutral-600">尚未有數據</p>
+          <p className="max-w-xs px-4 text-xs leading-relaxed text-neutral-400">
+            請在左側匯入或輸入數據，並選擇 X / Y 軸欄位後，圖表會自動生成。
+            <br />
+            標題、軸名稱等可在右側「圖表屬性設定」中自行調整。
+          </p>
+        </div>
+      ) : (
+        <div className={cn(fill && 'min-h-0 flex-1')}>
+          <Plot
+            data={traces}
+            layout={layout}
+            config={plotConfig}
+            useResizeHandler={true}
+            divId={divId}
+            style={{
+              width: fill || width === undefined ? '100%' : width,
+              height: fill ? '100%' : height,
+            }}
+            className="w-full"
+          />
+        </div>
+      )}
     </div>
   )
 }
