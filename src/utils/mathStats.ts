@@ -31,6 +31,8 @@ export interface RegressionResult {
   status: RegressionStatus
   /** Human readable reason when status !== 'ok' */
   reason?: string
+  /** Breakdown of why points were excluded (e.g. "non-finite": 2, "y ≤ 0": 1) */
+  exclusionReasons: Record<string, number>
 }
 
 export const REGRESSION_TYPE_LABELS: Record<RegressionType, string> = {
@@ -156,13 +158,15 @@ export function linearRegression(
   const finite = points.filter(isFinitePoint)
   const usedCount = finite.length
   const excludedCount = totalCount - usedCount
+  const exclusionReasons: Record<string, number> = {}
+  if (excludedCount > 0) exclusionReasons['non-finite'] = excludedCount
   if (usedCount < 2) {
-    return createDegenerate('linear', totalCount, usedCount, 'insufficient-data', '資料不足：線性擬合至少需要 2 筆有效資料')
+    return createDegenerate('linear', totalCount, usedCount, 'insufficient-data', '資料不足：線性擬合至少需要 2 筆有效資料', exclusionReasons)
   }
 
   const raw = linearFitRaw(finite, !!options.forceZeroIntercept)
   if ('degenerate' in raw) {
-    return createDegenerate('linear', totalCount, usedCount, 'degenerate', raw.reason)
+    return createDegenerate('linear', totalCount, usedCount, 'degenerate', raw.reason, exclusionReasons)
   }
   const { slope, intercept } = raw
 
@@ -183,6 +187,7 @@ export function linearRegression(
     usedCount,
     excludedCount,
     status: 'ok',
+    exclusionReasons,
   }
 }
 
@@ -194,8 +199,10 @@ export function polynomialRegression(
   const finite = points.filter(isFinitePoint)
   const usedCount = finite.length
   const excludedCount = totalCount - usedCount
+  const exclusionReasons: Record<string, number> = {}
+  if (excludedCount > 0) exclusionReasons['non-finite'] = excludedCount
   if (usedCount < 3) {
-    return createDegenerate('polynomial', totalCount, usedCount, 'insufficient-data', '資料不足：二次擬合至少需要 3 筆有效資料')
+    return createDegenerate('polynomial', totalCount, usedCount, 'insufficient-data', '資料不足：二次擬合至少需要 3 筆有效資料', exclusionReasons)
   }
   const xs = finite.map((p) => p.x)
 
@@ -230,7 +237,7 @@ export function polynomialRegression(
     const detU = s4u * s2u - s3u * s3u
     const scaleU = Math.max(Math.abs(s4u * s2u), Math.abs(s3u * s3u))
     if (scaleU === 0 || Math.abs(detU) <= 1e-12 * scaleU) {
-      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system')
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system', exclusionReasons)
     }
     const Au = (s2u * s2yu - s3u * s1yu) / detU // A = a*sigma²
     const Bu = (s4u * s1yu - s3u * s2yu) / detU // B = b*sigma
@@ -238,7 +245,7 @@ export function polynomialRegression(
     b = Bu / sigma
     c = 0
     if (!Number.isFinite(a) || !Number.isFinite(b)) {
-      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值', exclusionReasons)
     }
   } else {
     // Center and scale x values for numerical stability (scale-aware)
@@ -264,7 +271,7 @@ export function polynomialRegression(
       [s2, s1, s0, sy],
     ])
     if (!solved) {
-      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system')
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', 'X values are degenerate, cannot solve quadratic system', exclusionReasons)
     }
 
     // Transform back: y = A*u² + B*u + C where u=(x-μ)/σ
@@ -278,7 +285,7 @@ export function polynomialRegression(
     b = B2 - 2 * A2 * mu
     c = A2 * mu * mu - B2 * mu + C
     if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) {
-      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+      return createDegenerate('polynomial', totalCount, usedCount, 'degenerate', '計算結果非有限值', exclusionReasons)
     }
   }
 
@@ -303,6 +310,7 @@ export function polynomialRegression(
     usedCount,
     excludedCount,
     status: 'ok',
+    exclusionReasons,
   }
 }
 
@@ -318,11 +326,14 @@ export function exponentialRegression(
   const domainExcluded = finite.length - valid.length
   const usedCount = valid.length
   const excludedCount = totalCount - usedCount
+  const exclusionReasonsExp: Record<string, number> = {}
+  if (nonFiniteExcluded > 0) exclusionReasonsExp['non-finite'] = nonFiniteExcluded
+  if (domainExcluded > 0) exclusionReasonsExp['y ≤ 0'] = domainExcluded
   if (usedCount < 2) {
     const reason = nonFiniteExcluded > 0 || domainExcluded > 0
       ? `資料不足：指數擬合至少需要 2 筆 y>0 的有效資料（已排除 ${excludedCount} 筆）`
       : '資料不足：指數擬合至少需要 2 筆 y>0 的有效資料'
-    return createDegenerate('exponential', totalCount, usedCount, usedCount === 0 && finite.length === 0 && totalCount > 0 ? 'insufficient-data' : finite.length < 2 ? 'insufficient-data' : 'insufficient-data', reason)
+    return createDegenerate('exponential', totalCount, usedCount, 'insufficient-data', reason, exclusionReasonsExp)
   }
 
   // Center x values for numerical stability — use raw linear fit, no rounding
@@ -330,13 +341,13 @@ export function exponentialRegression(
   const lnPoints = valid.map((p) => ({ x: p.x - mu, y: Math.log(p.y) }))
   const baseRaw = linearFitRaw(lnPoints, false)
   if ('degenerate' in baseRaw) {
-    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', baseRaw.reason ?? '無法建立指數模型')
+    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', baseRaw.reason ?? '無法建立指數模型', exclusionReasonsExp)
   }
   const b = baseRaw.slope
   const lnA = baseRaw.intercept - b * mu // transform intercept back to original x
   const a = Math.exp(lnA)
   if (!Number.isFinite(a) || !Number.isFinite(b)) {
-    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+    return createDegenerate('exponential', totalCount, usedCount, 'degenerate', '計算結果非有限值', exclusionReasonsExp)
   }
 
   const coefs = { a: toPrecision(a), b: toPrecision(b) }
@@ -356,6 +367,7 @@ export function exponentialRegression(
     usedCount,
     excludedCount,
     status: 'ok',
+    exclusionReasons: exclusionReasonsExp,
   }
 }
 
@@ -365,11 +377,22 @@ export function powerRegression(
 ): RegressionResult {
   const totalCount = points.length
   const finite = points.filter(isFinitePoint)
+  const nonFinite = totalCount - finite.length
   const valid = finite.filter((p) => p.x > 0 && p.y > 0)
   const usedCount = valid.length
   const excludedCount = totalCount - usedCount
+  const exclusionReasonsPow: Record<string, number> = {}
+  if (nonFinite > 0) exclusionReasonsPow['non-finite'] = nonFinite
+  let xLTE0 = 0, yLTE0 = 0
+  for (const p of finite) {
+    if (p.x <= 0) xLTE0++
+    if (p.y <= 0) yLTE0++
+  }
+  // only count domain failures that were actually finite but invalid for power
+  if (xLTE0 > 0) exclusionReasonsPow['x ≤ 0'] = xLTE0
+  if (yLTE0 > 0) exclusionReasonsPow['y ≤ 0'] = yLTE0
   if (usedCount < 2) {
-    return createDegenerate('power', totalCount, usedCount, 'insufficient-data', `資料不足：冪函數擬合至少需要 2 筆 x>0 且 y>0 的有效資料（已排除 ${excludedCount} 筆）`)
+    return createDegenerate('power', totalCount, usedCount, 'insufficient-data', `資料不足：冪函數擬合至少需要 2 筆 x>0 且 y>0 的有效資料（已排除 ${excludedCount} 筆）`, exclusionReasonsPow)
   }
 
   // Center ln(x) values for numerical stability — use raw linear fit
@@ -381,13 +404,13 @@ export function powerRegression(
   }))
   const baseRaw = linearFitRaw(logPoints, false)
   if ('degenerate' in baseRaw) {
-    return createDegenerate('power', totalCount, usedCount, 'degenerate', baseRaw.reason ?? '無法建立冪函數模型')
+    return createDegenerate('power', totalCount, usedCount, 'degenerate', baseRaw.reason ?? '無法建立冪函數模型', exclusionReasonsPow)
   }
   const b = baseRaw.slope // exponent
   const lnA = baseRaw.intercept - b * mu // transform intercept back
   const a = Math.exp(lnA)
   if (!Number.isFinite(a) || !Number.isFinite(b)) {
-    return createDegenerate('power', totalCount, usedCount, 'degenerate', '計算結果非有限值')
+    return createDegenerate('power', totalCount, usedCount, 'degenerate', '計算結果非有限值', exclusionReasonsPow)
   }
 
   const coefs = { a: toPrecision(a), b: toPrecision(b) }
@@ -407,6 +430,7 @@ export function powerRegression(
     usedCount,
     excludedCount,
     status: 'ok',
+    exclusionReasons: exclusionReasonsPow,
   }
 }
 
@@ -433,10 +457,11 @@ function createDegenerate(
   usedCount = 0,
   status: RegressionStatus = 'degenerate',
   reason = '資料不足，無法擬合',
+  exclusionReasons: Record<string, number> = {},
 ): RegressionResult {
-  // if caller passed totalCount but usedCount 0 and status was degenerate due to insufficient, keep as is
-  // excludedCount derived
   const excludedCount = Math.max(0, totalCount - usedCount)
+  // if caller provided empty but there is excluded, fill generic non-finite/domain
+  const reasons = Object.keys(exclusionReasons).length > 0 ? exclusionReasons : (excludedCount > 0 ? { 'non-finite': excludedCount } : {})
   return {
     type,
     formula: '資料不足，無法擬合',
@@ -448,6 +473,7 @@ function createDegenerate(
     excludedCount,
     status,
     reason,
+    exclusionReasons: reasons,
   }
 }
 
@@ -503,15 +529,45 @@ export interface ErrorBarOutput {
   arrayminus?: (number | null)[] | null
 }
 
-function computeStats(values: number[]): { sd: number; se: number; mean: number } {
+export function computeStats(values: number[]): { sd: number; se: number; mean: number } {
   const m = mean(values)
   const n = values.length
+  // n=1: sample SD/SE undefined (not 0) — do not fallback
   if (n < 2) return { sd: NaN, se: NaN, mean: m }
   let ss = 0
   for (const v of values) ss += (v - m) * (v - m)
-  // sample SD (n-1), not population SD (n)
+  // Sample Standard Deviation (n-1), Standard Error of the Mean = s / √n
   const sd = Math.sqrt(ss / (n - 1))
   return { sd, se: sd / Math.sqrt(n), mean: m }
+}
+
+/**
+ * Group points by X for repeated-measurements SE.
+ * Different X must NOT be treated as repeated of same condition.
+ * Example: X=1 → [2,3,4], X=2 → [5,6,7] each have n=3.
+ * rawData is long-format; this helper derives per-X groups without mutating rawData.
+ */
+export function groupByX(points: FitPoint[]): Map<number, number[]> {
+  const m = new Map<number, number[]>()
+  for (const p of points) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue
+    const arr = m.get(p.x)
+    if (arr) arr.push(p.y)
+    else m.set(p.x, [p.y])
+  }
+  return m
+}
+
+/** Compute SE per unique X using sample SD. Returns Map<X, SE>. */
+export function calculateGroupedSE(points: FitPoint[]): Map<number, number> {
+  const groups = groupByX(points)
+  const out = new Map<number, number>()
+  for (const [x, ys] of groups) {
+    if (ys.length < 2) continue // n=1 undefined, skip
+    const { se } = computeStats(ys)
+    if (Number.isFinite(se)) out.set(x, se)
+  }
+  return out
 }
 
 /**

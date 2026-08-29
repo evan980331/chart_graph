@@ -325,10 +325,13 @@ export function ScientificChart({
         msgs.push('所有數據點的 Y 值均相同，回歸線斜率為 0。')
       }
     }
-    if (fit && fit.excludedCount > 0) {
-      msgs.push(
-        `回歸已排除 ${fit.excludedCount} 筆無效點（使用 ${fit.usedCount} / ${fit.totalCount} 筆）。`,
-      )
+    if (fit) {
+      if (fit.excludedCount > 0) {
+        const reasons = fit.exclusionReasons ? Object.entries(fit.exclusionReasons).map(([k, v]) => `${v} × ${k}`).join('、') : ''
+        msgs.push(`回歸已排除 ${fit.excludedCount} 筆（使用 ${fit.usedCount} / ${fit.totalCount} 筆）${reasons ? `：${reasons}` : ''}。`)
+      } else if (fit.totalCount > 0) {
+        msgs.push(`回歸使用 ${fit.usedCount} / ${fit.totalCount} 筆資料。`)
+      }
     }
     if (fit && fit.status !== 'ok' && fit.reason) {
       msgs.push(fit.reason)

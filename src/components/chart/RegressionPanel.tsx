@@ -2,8 +2,8 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { NumberInput } from '@/components/ui/NumberInput'
 import { Switch } from '@/components/ui/switch'
-import { useChartStore } from '@/stores/useChartStore'
-import { REGRESSION_TYPE_LABELS } from '@/utils/mathStats'
+import { useChartStore, toNumber } from '@/stores/useChartStore'
+import { REGRESSION_TYPE_LABELS, fitRegression } from '@/utils/mathStats'
 import type { RegressionSettings, RegressionType } from '@/types/analysis'
 import { cn } from '@/utils/cn'
 
@@ -16,10 +16,25 @@ const LINE_STYLES: { value: RegressionSettings['lineStyle']; label: string }[] =
 export function RegressionPanel() {
   const regression = useChartStore((s) => s.regression)
   const setRegression = useChartStore((s) => s.setRegression)
+  const rawData = useChartStore((s) => s.rawData)
+  const mapping = useChartStore((s) => s.mapping)
 
   function update(patch: Partial<RegressionSettings>) {
     setRegression({ ...regression, ...patch })
   }
+
+  const fit = (() => {
+    if (!regression.enabled || !mapping.xAxis || !mapping.yAxis) return null
+    const pts: { x: number; y: number }[] = []
+    for (const r of rawData) {
+      const x = toNumber(r[mapping.xAxis])
+      const y = toNumber(r[mapping.yAxis])
+      if (x === null || y === null) continue
+      pts.push({ x, y })
+    }
+    if (pts.length === 0) return null
+    return fitRegression(pts, regression.type, { forceZeroIntercept: regression.forceZeroIntercept })
+  })()
 
   return (
     <div className="space-y-3">
@@ -60,6 +75,24 @@ export function RegressionPanel() {
           onChange={(checked) => update({ forceZeroIntercept: checked })}
         />
       </label>
+
+      {regression.enabled && fit && (
+        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-600">
+          <div>Equation: {fit.formula}</div>
+          <div>R²: {Number.isFinite(fit.r2) ? fit.r2.toFixed(4) : 'N/A'}</div>
+          <div>Data: {fit.usedCount} / {fit.totalCount} points used</div>
+          {fit.excludedCount > 0 && (
+            <div>
+              Excluded: {fit.excludedCount} points
+              {fit.exclusionReasons && Object.keys(fit.exclusionReasons).length > 0
+                ? ` (${Object.entries(fit.exclusionReasons).map(([k, v]) => `${v} × ${k}`).join('、')})`
+                : ''}
+            </div>
+          )}
+          {fit.status !== 'ok' && fit.reason && <div className="text-amber-700">{fit.status}: {fit.reason}</div>}
+          {fit.status === 'ok' && <div className="text-emerald-700">status: ok</div>}
+        </div>
+      )}
 
       <fieldset className="space-y-1.5" disabled={!regression.enabled}>
         <Label>線條樣式</Label>
