@@ -32,10 +32,10 @@ function AxisFields({ axis, value, onChange }: AxisFieldsProps) {
   }
 
   return (
-    <fieldset className="space-y-2.5">
-      <legend className="mb-1 text-xs font-medium text-neutral-500">
-        {title}
-      </legend>
+      <fieldset className="space-y-2.5 rounded-md border border-neutral-200 p-3">
+        <legend className="mb-1 text-xs font-semibold text-neutral-700">
+          {title}
+        </legend>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <div className="flex items-center justify-between">
@@ -98,15 +98,15 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
   const setStyleConfig = useChartStore((s) => s.setStyleConfig)
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-neutral-200 bg-white">
-      <div className="flex h-11 items-center border-b border-neutral-200 px-4">
+    <aside className="flex h-full w-80 shrink-0 flex-col border-l-2 border-neutral-300 bg-white">
+      <div className="flex h-11 items-center border-b-2 border-neutral-300 bg-neutral-100 px-4">
         <h2 className="text-sm font-semibold text-neutral-900">
           圖表屬性設定
         </h2>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="border-b border-neutral-200 p-3">
+        <div className="border-b-2 border-neutral-300 bg-neutral-50 p-3">
           <Label className="mb-2 block">圖表類型</Label>
           <ChartTypeSelector />
         </div>
@@ -125,8 +125,8 @@ export function StylePanel({ config, onChange }: StylePanelProps) {
             />
 
             {/* 字級設定 */}
-            <div className="space-y-2.5 border-t border-neutral-100 pt-3">
-              <legend className="mb-1 text-xs font-medium text-neutral-500">
+            <div className="space-y-2.5 border-t-2 border-neutral-200 pt-3">
+              <legend className="mb-1 text-xs font-semibold text-neutral-700">
                 字級設定
               </legend>
               <div className="grid grid-cols-2 gap-2">

@@ -63,8 +63,8 @@ interface AxisErrorBarProps {
 
 function AxisErrorBar({ title, settings, showValue, onChange }: AxisErrorBarProps) {
   return (
-    <fieldset className="space-y-2.5 rounded-md border border-neutral-200 p-3">
-      <legend className="px-1 text-xs font-medium text-neutral-500">{title}</legend>
+      <fieldset className="space-y-2.5 rounded-md border-2 border-neutral-300 p-3">
+        <legend className="px-1 text-xs font-semibold text-neutral-700">{title}</legend>
 
       <div className="space-y-1">
         <Label htmlFor={`${title}-source`}>誤差來源</Label>

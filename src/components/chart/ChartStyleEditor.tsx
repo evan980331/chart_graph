@@ -48,8 +48,8 @@ export function ChartStyleEditor() {
   return (
     <div className="space-y-4">
       {/* 字體與文字 */}
-      <fieldset className="space-y-2.5 rounded-md border border-neutral-200 p-3">
-        <legend className="px-1 text-xs font-medium text-neutral-500">
+      <fieldset className="space-y-2.5 rounded-md border-2 border-neutral-300 p-3">
+        <legend className="px-1 text-xs font-semibold text-neutral-700">
           字體與文字
         </legend>
         <div className="space-y-1">
@@ -87,8 +87,8 @@ export function ChartStyleEditor() {
       </fieldset>
 
       {/* 軸線與刻度 */}
-      <fieldset className="space-y-2.5 rounded-md border border-neutral-200 p-3">
-        <legend className="px-1 text-xs font-medium text-neutral-500">
+      <fieldset className="space-y-2.5 rounded-md border-2 border-neutral-300 p-3">
+        <legend className="px-1 text-xs font-semibold text-neutral-700">
           軸線與刻度
         </legend>
         <div className="grid grid-cols-2 gap-2">
@@ -167,8 +167,8 @@ export function ChartStyleEditor() {
       </fieldset>
 
       {/* 網格與背景 */}
-      <fieldset className="space-y-2.5 rounded-md border border-neutral-200 p-3">
-        <legend className="px-1 text-xs font-medium text-neutral-500">
+      <fieldset className="space-y-2.5 rounded-md border-2 border-neutral-300 p-3">
+        <legend className="px-1 text-xs font-semibold text-neutral-700">
           網格與背景
         </legend>
         <label className="flex items-center justify-between">

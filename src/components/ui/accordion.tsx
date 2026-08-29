@@ -19,15 +19,15 @@ export function AccordionItem({
     <details
       open={defaultOpen}
       className={cn(
-        'group border-b border-neutral-200 last:border-b-0',
+        'group border-b-2 border-neutral-300 last:border-b-0',
         className,
       )}
     >
-      <summary className="flex cursor-pointer select-none items-center justify-between px-4 py-3 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50 [&::-webkit-details-marker]:hidden">
+      <summary className="sticky top-0 z-10 flex cursor-pointer select-none items-center justify-between border-b border-neutral-300 bg-neutral-100 px-4 py-2.5 text-sm font-semibold text-neutral-900 transition-colors hover:bg-neutral-200 [&::-webkit-details-marker]:hidden">
         {title}
-        <ChevronDown className="h-4 w-4 text-neutral-400 transition-transform group-open:rotate-180" />
+        <ChevronDown className="h-4 w-4 text-neutral-500 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="space-y-3 px-4 pb-4">{children}</div>
+      <div className="space-y-3 bg-white px-4 pb-4 pt-3">{children}</div>
     </details>
   )
 }
@@ -40,8 +40,6 @@ export function Accordion({
   className?: string
 }) {
   return (
-    <div className={cn('divide-y divide-neutral-200', className)}>
-      {children}
-    </div>
+    <div className={cn(className)}>{children}</div>
   )
 }
